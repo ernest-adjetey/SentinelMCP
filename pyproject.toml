@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sentinelmcp"
+version = "0.1.0a0"
+description = "Reliability, safety, and observability control plane for AI agent tool calls"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+authors = [{ name = "Ernest Adjei Adjetey" }]
+keywords = [
+  "ai-agents",
+  "mcp",
+  "observability",
+  "reliability",
+  "safety",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.13,<2",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<7",
+  "ruff>=0.8,<1",
+]
+
+[project.urls]
+Documentation = "https://github.com/ernest-adjetey/SentinelMCP/tree/main/docs"
+Issues = "https://github.com/ernest-adjetey/SentinelMCP/issues"
+Repository = "https://github.com/ernest-adjetey/SentinelMCP"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sentinelmcp"]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--strict-config",
+  "--strict-markers",
+  "--cov=sentinelmcp",
+  "--cov-report=term-missing:skip-covered",
+  "--cov-fail-under=100",
+]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["sentinelmcp"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+show_missing = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+mypy_path = "src"
+warn_unreachable = true
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sentinelmcp"]
