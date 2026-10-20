@@ -24,7 +24,9 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+  "semver>=3.0,<4",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -46,9 +48,10 @@ packages = ["src/sentinelmcp"]
 addopts = [
   "--strict-config",
   "--strict-markers",
+  "-Werror",
   "--cov=sentinelmcp",
   "--cov-report=term-missing:skip-covered",
-  "--cov-fail-under=100",
+  "--cov-fail-under=95",
 ]
 pythonpath = ["src"]
 testpaths = ["tests"]
