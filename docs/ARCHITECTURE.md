@@ -136,13 +136,14 @@ Schema compilation and fingerprinting belong to `registry`; framework-independen
 policy, definition, and error types belong to `domain`. Endpoint routing is intentionally
 deferred in Phase 2 until a separate execution boundary exists.
 
-### Phase 3 execution boundary
+### Execution boundary
 
-The application `ToolExecutor` owns the single-attempt lifecycle without importing FastAPI or
-HTTPX. It resolves an exact definition, validates arguments, rejects mutations until their
-safety phase, resolves a runtime binding for the same exact reference, invokes one adapter,
-and validates successful output. It returns immutable `ExecutionSuccess` or `ExecutionFailure`
-values instead of leaking adapter exceptions.
+The application `ToolExecutor` owns the lifecycle without importing FastAPI or HTTPX. It resolves
+an exact definition, validates arguments, authorizes the principal, applies admission control,
+rejects mutations from the ordinary path, resolves the exact runtime binding, and invokes the
+adapter within one deadline. Eligible reads may make bounded attempts; successful output is always
+validated. The executor returns immutable `ExecutionSuccess` or `ExecutionFailure` values instead
+of leaking adapter exceptions.
 
 `RuntimeToolBinding` is mutable operational state, not semantic registry content. It associates
 an exact `ToolRef` with a configured `ToolAdapter`; endpoint and handler configuration therefore
@@ -254,30 +255,31 @@ phases. Production schema changes use Alembic rather than runtime table creation
 
 ### Redis: coordination and acceleration
 
-Redis is not present. It may later support rate limiting, shared circuit-breaker state, bounded
-caches, and short leases. Durable safety evidence does not exist only in Redis. Degradation
-behavior is explicit: mutations fail closed when coordination state required for safety is
-unavailable.
+Redis is not present. Phase 7 provides protocol-backed, process-local rate limiting, retry budgets,
+and circuit state because the executable deployment has no multi-replica runtime. A horizontally
+scaled deployment needs atomic shared implementations and service-level race tests before claiming
+global bounds. Durable mutation safety remains in PostgreSQL and never exists only in Redis.
 
 ## 9. Execution semantics
 
-Phase 3 implements the status/content/body/schema order and deliberately makes only one adapter
-attempt. The deadline, retry, and circuit-breaker statements below remain later-phase design
-requirements, not current behavior.
+The adapter implements status/content/body/schema normalization for one attempt. Phase 7 makes the
+following statements executable in the application executor:
 
 - A deadline is a budget for the whole call, not a fresh timeout for every retry.
 - Retry delays consume that budget.
 - Reads may retry only classified transient failures.
-- Mutations do not retry unless an idempotency key is present and the target contract declares
-  idempotency support.
+- Mutations never retry automatically in the current implementation; downstream idempotency-key
+  propagation is not implemented.
 - The executor inspects status, content type, body size, JSON validity, and response schema in
   that order. It never blindly calls `response.json()`.
-- Circuit-breaker state is keyed by tool version and endpoint. A distributed lease admits a
-  bounded number of half-open probes.
+- Circuit-breaker state is keyed by exact tool version. Generation-bound permits admit a bounded
+  number of half-open probes in one process.
 - Client cancellation stops waiting and attempts to cancel outbound work, but the audit event
   records that the upstream effect may be unknown.
 
-See `FAILURE_MODEL.md` for the error taxonomy and ambiguous-outcome handling.
+Runtime bindings do not yet publish a stable endpoint identity, so tools sharing one dependency do
+not share a circuit. See `FAILURE_MODEL.md` and `RELIABILITY.md` for the error taxonomy, reliability
+limits, and ambiguous-outcome handling.
 
 ## 10. Observability
 

@@ -2,11 +2,12 @@
 
 ## Status and scope
 
-Phases 3 through 6 implement one real execution path from a signed-JWT-authenticated FastAPI
+Phases 3 through 7 implement one real execution path from a signed-JWT-authenticated FastAPI
 request to an exact immutable tool contract, authorization decision, runtime binding, adapter
 invocation, output validation, and stable response. The contract registry can be in memory or
 PostgreSQL. Mutations use separate durable preview and confirmation endpoints backed by
-PostgreSQL. Retries, circuit breaking, telemetry, replay, and benchmarks are not implemented.
+PostgreSQL. Reads have request-wide deadlines, bounded retries, retry budgets, rate limiting, and
+circuit breaking. Telemetry, replay, MCP transport, and benchmarks are not implemented.
 
 The public demo registers only read tools. A registered mutation is rejected by ordinary
 `ToolExecutor.execute` with `mutation_not_supported`; supported mutation callers must use
@@ -20,8 +21,7 @@ Three identifiers have different purposes:
   immutable semantic contract and never means latest.
 - **Request identity** is an internally generated UUID4 for one accepted gateway request.
 - **Execution identity** is a separate internally generated UUID4 for one dispatch attempt.
-  Phase 3 makes one attempt, but the distinction prevents a future retry from being confused
-  with the caller-visible request.
+  Retries retain the request ID and receive a new execution ID.
 
 Malformed gateway envelopes receive a generated request ID but no execution ID because they do
 not create a typed core execution. UUID4 provides strong uniqueness, not temporal ordering.
@@ -178,14 +178,27 @@ The runnable demo ASGI app is `sentinelmcp.adapters.rest.demo:app`.
 
 All definitions use the real immutable registry, schemas, bindings, executor, and output checks.
 
+## Reliability controls
+
+The executor creates one absolute monotonic deadline after authorization and rate admission. Reads
+retry only transient upstream rate-limit, server, timeout, and unavailable failures. Each retry
+requires both its contract attempt allowance and one aggregate retry-budget token, then sleeps for
+capped exponential full jitter without exceeding the deadline. Every adapter attempt is bounded by
+the remaining deadline. Mutations are always single-attempt.
+
+The three-state circuit breaker counts dependency-health failures only and uses generation-bound,
+bounded half-open probes. Rate limiting is keyed by verified principal plus exact tool. Public
+rejections expose bounded `retry_after_ms` guidance. See [Reliability controls](RELIABILITY.md).
+
 ## Deliberate limitations
 
-- There is no retry, backoff, circuit breaker, or request-wide deadline budget.
-- HTTP has one configured per-attempt timeout; timeout is classified and returned.
+- Rate limiting, retry budgets, and circuits default to no-op/unlimited until explicitly injected.
+- Built-in reliability state is process-local and retains observed keys for the process lifetime;
+  it does not enforce global multi-replica bounds.
 - There is no endpoint allowlist, DNS/IP policy, credential injection, or redirect policy beyond
   refusing redirects. The HTTP adapter is not production-safe for untrusted target configuration.
 - There is no token issuance, remote key discovery, revocation, persisted policy, delegated
-  agent identity, rate limiting, distributed binding coordination, audit, telemetry, or replay.
+  agent identity, distributed binding coordination, audit, telemetry, or replay.
   Mutation safety is durable, but downstream idempotency propagation and automated
   reconciliation are not implemented. Runtime bindings remain process-local.
 - There is no MCP transport adapter or CLI execution command yet. Both can call the same core

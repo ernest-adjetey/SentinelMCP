@@ -142,19 +142,27 @@ or owning feature requires them.
 
 ## Phase 7: Reliability execution controls
 
+**Status: Complete**
+
 **Deliverables**
 
 - Request-wide deadline budgets
 - Exponential backoff with bounded full jitter and retry budgets
-- Redis-backed `CLOSED`, `OPEN`, and `HALF_OPEN` circuit breaker with probe leases
+- Protocol-backed `CLOSED`, `OPEN`, and `HALF_OPEN` circuit breaker with bounded probes
 - Safe upstream decoder and complete normalized error hierarchy
 
 **Tests**
 
 - Deterministic clock/randomness unit tests
-- Multi-process circuit transition and probe-concurrency tests
+- Threaded circuit transition, stale-generation, and probe-concurrency tests
 - Retry matrix for reads and idempotent/non-idempotent mutations
 - Malformed media type, body, status, encoding, and schema cases
+
+The executable deployment is single-process, so the first implementation is thread-safe and
+process-local. Redis was not added without a real cross-replica deployment requirement. Shared
+implementations and multi-process service tests are required before claiming global rate, retry,
+or circuit bounds. Mutations remain single-attempt because no downstream idempotency contract is
+propagated.
 
 ## Phase 8: Observability
 

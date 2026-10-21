@@ -50,8 +50,9 @@ authorization signal.
 
 These are target invariants for the first production-capable release, not a claim that every
 control is implemented. Phase 5 implements signed-JWT authentication and default-deny
-authorization for execution, and Phase 6 implements durable mutation confirmation and local
-idempotency arbitration. Audit, outbound-target, and rate-limit controls remain incomplete, so
+authorization for execution, Phase 6 implements durable mutation confirmation and local
+idempotency arbitration, and Phase 7 implements optional process-local reliability controls.
+Audit and outbound-target controls remain incomplete, and rate controls are not cross-replica, so
 the project is not production-safe.
 
 1. No tool executes before authentication, schema validation, and authorization succeed.
@@ -133,6 +134,21 @@ The live token remains bearer material for its bound principal until use or expi
 administrator compromise, target-side duplicate behavior, and process failure between external
 effect and terminal persistence remain residual risks. See [Mutation safety](MUTATION_SAFETY.md).
 
+## Phase 7 implemented controls
+
+- One absolute monotonic deadline bounds backoff and every adapter attempt.
+- Reads retry only classified transient failures; mutation dispatch is always single-attempt.
+- Full-jitter backoff and a separate exact-tool retry budget bound local retry amplification.
+- Rate-limit scopes derive from verified identity and exact tool identity.
+- The circuit breaker counts only dependency-health failures and uses generation-bound,
+  concurrency-limited half-open probes.
+- Control-admission failures fail the request, while post-dispatch bookkeeping cannot replace an
+  authoritative tool outcome.
+
+These controls are disabled unless explicitly injected and are process-local. They neither enforce
+global multi-replica limits nor bound retained scope records; deployments with those requirements
+must provide protocol implementations with atomic shared state and bounded retention.
+
 ## Threats and controls
 
 | Threat | Planned controls | Residual risk / validation |
@@ -151,8 +167,8 @@ effect and terminal persistence remain residual risks. See [Mutation safety](MUT
 | Audit tampering | Insert-only application role, event hashes and sequence checks, restricted retention administration | Database administrator can still alter storage; true WORM is future work |
 | Telemetry data leak | Allowlisted attributes, sensitive-field filters, bounded body previews, no raw confirmation tokens | Tool-specific secrets need registry annotations |
 | Cardinality attack | Bounded metric labels; request and trace IDs only in logs/traces | Unbounded tool names are prevented by registry constraints |
-| Rate-limit bypass | Redis atomic limiter keyed by trusted principal and policy scope | Redis outage behavior must be explicit and tested |
-| Circuit-state poisoning | Classify only relevant failures; key by immutable tool endpoint; bounded half-open probes | Shared dependency failures can still cascade across tools |
+| Rate-limit bypass | Implemented trusted-principal/exact-tool token bucket | State is process-local; replicas do not share a global limit |
+| Circuit-state poisoning | Implemented health-failure classification and generation-bound probes | Exact-tool local keys do not coordinate shared endpoints or replicas |
 | Replay abuse | Synthetic targets only by default; privileged command; reauthorization; dry-run mode; audit replay attempts | Operator compromise remains high impact |
 | Fault-injection exposure | Separate test configuration and package; startup refusal in production mode | Misconfigured deployment needs CI policy checks |
 | Supply-chain compromise | Pinned lockfile in a later phase, dependency review, hashes in release builds, minimal dependencies | CI runner and package index are external trust roots |

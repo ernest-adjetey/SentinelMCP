@@ -29,7 +29,7 @@ failures. The gateway must not convert every failure into HTTP 500 or leak raw u
 | `AUDIT_UNAVAILABLE` | Required audit persistence failed | Mutations fail closed |
 | `INTERNAL_ERROR` | Unclassified gateway defect | Retry only if documented safe |
 
-The public error envelope will include `code`, `message`, `request_id`, optional `retry_after`,
+The public error envelope includes `code`, `message`, `request_id`, optional `retry_after_ms`,
 and bounded structured details. Internal causes and stack traces remain in redacted telemetry.
 
 ### Implemented registry errors
@@ -53,7 +53,7 @@ registration as the successful `already_registered` status.
 
 ### Implemented execution errors
 
-Phase 3 returns immutable successes or failures rather than raising transport exceptions through
+The executor returns immutable successes or failures rather than raising transport exceptions through
 the gateway. Execution failures carry a safe message, exact reference, request/execution IDs,
 optional upstream status, and bounded validation issues. Categories distinguish lookup, input,
 binding, adapter, upstream status, timeout/connection, media type, malformed/oversized body,
@@ -88,16 +88,14 @@ At no point does it assume that a successful HTTP status implies valid JSON.
 
 ## Retry matrix
 
-Phase 3 performs exactly one adapter attempt and never retries. This matrix is the planned Phase
-7 policy and is not executable behavior yet.
+Phase 7 implements this retry matrix in the transport-independent executor.
 
 | Operation | Failure | Automatic retry? |
 | --- | --- | --- |
 | Read | Connect failure, selected 5xx, 429 | Yes, if attempts and deadline remain |
 | Read | 401, 403, validation, malformed response | No |
 | Mutation without idempotency support | Any dispatched request failure | No |
-| Mutation with idempotency support | Pre-dispatch connect failure | Policy-dependent |
-| Mutation with idempotency support | Lost response after dispatch | Only if upstream contract guarantees key semantics |
+| Mutation with declared idempotency | Any failure | No; downstream key propagation is absent |
 | Any | Circuit open or local validation failure | No upstream call |
 
 Backoff uses exponential growth with bounded full jitter. The retry policy stores maximum
@@ -106,16 +104,16 @@ authority.
 
 ## Circuit breaker
 
-The planned circuit breaker has three states:
+The process-local circuit breaker has three states:
 
 - **CLOSED:** calls flow and classified outcomes update a rolling failure window.
 - **OPEN:** calls fail fast until the cooldown timestamp.
-- **HALF_OPEN:** a distributed lease admits a bounded probe set; success closes the circuit and
+- **HALF_OPEN:** generation-bound permits admit a bounded probe set; success closes the circuit and
   failure reopens it.
 
 Only dependency-health failures affect the breaker. Caller validation errors, authorization
-rejections, and expected not-found results do not. State transitions emit audit-neutral
-telemetry and low-cardinality metrics.
+rejections, and expected not-found results do not. Telemetry for state transitions remains Phase
+8 work.
 
 ## Ambiguous mutation outcomes
 
@@ -130,11 +128,11 @@ command remains later work.
 | Dependency | Reads | Mutations |
 | --- | --- | --- |
 | PostgreSQL unavailable | Fail if registry/audit data cannot be served safely | Fail closed |
-| Redis unavailable | Configurable degraded read policy; local fallback is not correctness-equivalent | Fail closed when rate/circuit coordination is required |
+| Shared reliability backend unavailable | Not implemented; built-ins remain process-local | Do not claim cross-replica bounds |
 | Trace exporter unavailable | Continue and record exporter health locally | Continue if audit is durable |
 | Prometheus scrape unavailable | Execution continues | Execution continues |
 
-These policies will be executable configuration with tests, not implicit exception behavior.
+PostgreSQL and exporter policies are executable only as their owning phases implement them.
 
 ## Shutdown and cancellation
 

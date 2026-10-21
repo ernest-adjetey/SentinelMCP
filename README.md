@@ -6,11 +6,12 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 6 are complete. SentinelMCP can durably register exact
+> **Project status:** Phases 1 through 7 are complete. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
-> confirmation, and idempotency state. Reliability controls are not implemented yet; this is
-> not production-ready software.
+> confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
+> process-local rate limiting, retry budgets, and three-state circuit breaking. This is not
+> production-ready software.
 
 ## Why this exists
 
@@ -75,6 +76,10 @@ See [Architecture](docs/ARCHITECTURE.md) and
 - Atomic single-use challenge consumption and durable scoped idempotency records
 - Terminal outcome recovery, conflict detection, fail-closed storage behavior, and real
   32-client race tests
+- Request-wide monotonic deadlines with cancellation of overdue adapter attempts
+- Read-only transient retries with capped exponential full jitter and aggregate retry budgets
+- Thread-safe token-bucket admission and generation-safe three-state circuit breaking
+- Stable local-rate-limit, circuit-open, and deadline-exhausted transport errors
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
@@ -82,11 +87,11 @@ The full behavioral contract and current limits are in
 [PostgreSQL persistence](docs/PERSISTENCE.md), and the security boundary is documented in
 [Security model](docs/SECURITY_MODEL.md). Mutation delivery limits are documented in
 [Mutation safety](docs/MUTATION_SAFETY.md).
+[Reliability controls](docs/RELIABILITY.md) defines the retry matrix and deployment limits.
 
 ## Planned capabilities
 
 - MCP entry point sharing the transport-independent execution contract
-- Deadline propagation, bounded retries, and three-state circuit breakers
 - Redacted append-only audit events and deterministic replay against synthetic services
 - OpenTelemetry traces, Prometheus metrics, and checked-in Grafana dashboards
 - Fault injection, reliability evaluation, and reproducible performance benchmarks
@@ -159,7 +164,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 4 | Durable PostgreSQL tool registry | Complete |
 | 5 | Authentication and authorization | Complete |
 | 6 | Mutation confirmation and idempotency | Complete |
-| 7 | Retries, deadlines, circuit breakers, error normalization | Planned |
+| 7 | Retries, deadlines, circuit breakers, error normalization | Complete |
 | 8 | OpenTelemetry, Prometheus, Grafana | Planned |
 | 9 | Synthetic tools and fault injection | Planned |
 | 10 | Replay | Planned |
