@@ -31,7 +31,15 @@ from sentinelmcp.execution import (
     RequestId,
     RuntimeToolBinding,
 )
+from sentinelmcp.policy import (
+    AuthorizationRule,
+    PolicyEffect,
+    Principal,
+    RuleBasedAuthorizationPolicy,
+)
 from sentinelmcp.registry import InMemoryToolRegistry, ToolRegistry
+
+TEST_PRINCIPAL = Principal("execution-test", "https://issuer.test")
 
 
 class RecordingAdapter:
@@ -97,7 +105,19 @@ def make_definition(
 
 
 def run_execution(executor: ToolExecutor, request: ExecutionRequest) -> object:
-    return asyncio.run(executor.execute(request))
+    return asyncio.run(executor.execute(request, principal=TEST_PRINCIPAL))
+
+
+def allow_policy(definition: ToolDefinition) -> RuleBasedAuthorizationPolicy:
+    return RuleBasedAuthorizationPolicy(
+        (
+            AuthorizationRule(
+                PolicyEffect.ALLOW,
+                definition.identity,
+                definition.operation_class,
+            ),
+        )
+    )
 
 
 def setup_executor(
@@ -109,7 +129,11 @@ def setup_executor(
     bindings = InMemoryRuntimeBindingRegistry()
     if adapter is not None:
         bindings.bind(RuntimeToolBinding(definition.ref, adapter))
-    return ToolExecutor(registry, bindings), registry, bindings
+    return (
+        ToolExecutor(registry, bindings, authorization_policy=allow_policy(definition)),
+        registry,
+        bindings,
+    )
 
 
 def test_valid_execution_has_trusted_ids_fingerprint_and_monotonic_duration() -> None:
@@ -123,6 +147,7 @@ def test_valid_execution_has_trusted_ids_fingerprint_and_monotonic_duration() ->
     executor = ToolExecutor(
         registry,
         bindings,
+        authorization_policy=allow_policy(definition),
         request_id_factory=lambda: RequestId(UUID("00000000-0000-4000-8000-000000000001")),
         execution_id_factory=lambda: ExecutionId(UUID("00000000-0000-4000-8000-000000000002")),
         wall_clock=lambda: datetime(2026, 1, 2, tzinfo=UTC),
@@ -246,7 +271,11 @@ def test_unexpected_adapter_exception_or_result_is_hidden() -> None:
 
 def test_registry_internal_exception_is_normalized() -> None:
     bindings = InMemoryRuntimeBindingRegistry()
-    executor = ToolExecutor(cast(ToolRegistry, BrokenRegistry()), bindings)
+    executor = ToolExecutor(
+        cast(ToolRegistry, BrokenRegistry()),
+        bindings,
+        authorization_policy=RuleBasedAuthorizationPolicy(()),
+    )
     request = ExecutionRequest(ToolRef.parse("demo.test.run@1.0.0"), {"value": "go"})
 
     result = run_execution(executor, request)

@@ -25,7 +25,15 @@ from sentinelmcp.execution import (
     InMemoryRuntimeBindingRegistry,
     RuntimeToolBinding,
 )
+from sentinelmcp.policy import (
+    AuthorizationRule,
+    PolicyEffect,
+    Principal,
+    RuleBasedAuthorizationPolicy,
+)
 from sentinelmcp.registry import InMemoryToolRegistry
+
+TEST_PRINCIPAL = Principal("property-test", "https://issuer.test")
 
 
 class PropertyAdapter:
@@ -62,7 +70,10 @@ def make_executor(adapter: PropertyAdapter) -> tuple[ToolExecutor, ToolDefinitio
     registry.register(definition)
     bindings = InMemoryRuntimeBindingRegistry()
     bindings.bind(RuntimeToolBinding(definition.ref, adapter))
-    return ToolExecutor(registry, bindings), definition
+    policy = RuleBasedAuthorizationPolicy(
+        (AuthorizationRule(PolicyEffect.ALLOW, definition.identity, OperationClass.READ),)
+    )
+    return ToolExecutor(registry, bindings, authorization_policy=policy), definition
 
 
 INVALID_NUMBERS = st.one_of(
@@ -88,7 +99,12 @@ def test_generated_invalid_arguments_never_invoke_adapter(value: object) -> None
     adapter = PropertyAdapter({"value": "valid"})
     executor, definition = make_executor(adapter)
 
-    result = asyncio.run(executor.execute(ExecutionRequest(definition.ref, {"value": value})))
+    result = asyncio.run(
+        executor.execute(
+            ExecutionRequest(definition.ref, {"value": value}),
+            principal=TEST_PRINCIPAL,
+        )
+    )
 
     assert isinstance(result, ExecutionFailure)
     assert result.error.code is ExecutionErrorCode.INPUT_VALIDATION_FAILED
@@ -101,7 +117,12 @@ def test_generated_contract_invalid_outputs_never_become_success(output: object)
     adapter = PropertyAdapter(output)
     executor, definition = make_executor(adapter)
 
-    result = asyncio.run(executor.execute(ExecutionRequest(definition.ref, {"value": 1})))
+    result = asyncio.run(
+        executor.execute(
+            ExecutionRequest(definition.ref, {"value": 1}),
+            principal=TEST_PRINCIPAL,
+        )
+    )
 
     assert isinstance(result, ExecutionFailure)
     assert result.error.code is ExecutionErrorCode.OUTPUT_VALIDATION_FAILED

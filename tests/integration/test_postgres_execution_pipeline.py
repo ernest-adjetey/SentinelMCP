@@ -17,9 +17,22 @@ from sentinelmcp.execution import (
     RuntimeToolBinding,
     SyntheticToolAdapter,
 )
+from sentinelmcp.policy import (
+    Authenticator,
+    AuthorizationRule,
+    PolicyEffect,
+    Principal,
+    RuleBasedAuthorizationPolicy,
+)
 from sentinelmcp.registry import PostgresToolRegistry
 
 pytestmark = pytest.mark.postgres
+
+
+class IntegrationAuthenticator(Authenticator):
+    def authenticate(self, token: str) -> Principal:
+        assert token == "integration-token"
+        return Principal(subject="integration", issuer="https://issuer.test")
 
 
 def catalog_definition() -> ToolDefinition:
@@ -55,7 +68,13 @@ def test_fastapi_executor_uses_postgres_registry_without_storage_coupling(
     postgres_registry.register(definition)
     bindings = InMemoryRuntimeBindingRegistry()
     bindings.bind(RuntimeToolBinding(definition.ref, SyntheticToolAdapter(catalog_lookup)))
-    app = create_execution_app(ToolExecutor(postgres_registry, bindings))
+    policy = RuleBasedAuthorizationPolicy(
+        (AuthorizationRule(PolicyEffect.ALLOW, definition.identity, OperationClass.READ),)
+    )
+    app = create_execution_app(
+        ToolExecutor(postgres_registry, bindings, authorization_policy=policy),
+        IntegrationAuthenticator(),
+    )
 
     async def execute() -> httpx.Response:
         transport = httpx.ASGITransport(app=app)
@@ -70,6 +89,7 @@ def test_fastapi_executor_uses_postgres_registry_without_storage_coupling(
                     },
                     "arguments": {"id": "asset-42"},
                 },
+                headers={"Authorization": "Bearer integration-token"},
             )
 
     response = asyncio.run(execute())

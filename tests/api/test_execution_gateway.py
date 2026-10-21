@@ -23,6 +23,24 @@ from sentinelmcp.execution import (
     ExecutionId,
     RequestId,
 )
+from sentinelmcp.policy import Authenticator, Principal
+
+TEST_PRINCIPAL = Principal(
+    subject="gateway-test",
+    issuer="https://issuer.test",
+    roles=frozenset({"developer"}),
+    scopes=frozenset({"tools:execute"}),
+)
+
+
+class StaticAuthenticator(Authenticator):
+    def authenticate(self, token: str) -> Principal:
+        if token != "valid-test-token":
+            raise AssertionError("gateway passed an unexpected test token")
+        return TEST_PRINCIPAL
+
+
+TEST_AUTHENTICATOR = StaticAuthenticator()
 
 
 def payload(
@@ -38,14 +56,23 @@ def payload(
     }
 
 
-def post(app: FastAPI, body: dict[str, object]) -> httpx.Response:
+def post(
+    app: FastAPI,
+    body: dict[str, object],
+    *,
+    authorization: str = "Bearer valid-test-token",
+) -> httpx.Response:
     async def send() -> httpx.Response:
         transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
         async with httpx.AsyncClient(
             transport=transport,
             base_url="http://sentinelmcp.test",
         ) as client:
-            return await client.post("/v1/execute", json=body)
+            return await client.post(
+                "/v1/execute",
+                json=body,
+                headers={"Authorization": authorization},
+            )
 
     return asyncio.run(send())
 
@@ -53,7 +80,7 @@ def post(app: FastAPI, body: dict[str, object]) -> httpx.Response:
 def test_gateway_executes_registered_synthetic_tool_end_to_end() -> None:
     runtime = create_demo_runtime()
 
-    response = post(create_execution_app(runtime.executor), payload())
+    response = post(create_execution_app(runtime.executor, TEST_AUTHENTICATOR), payload())
 
     assert response.status_code == 200
     body = response.json()
@@ -68,7 +95,7 @@ def test_gateway_executes_registered_synthetic_tool_end_to_end() -> None:
 
 def test_gateway_maps_unknown_tool_invalid_input_and_missing_binding() -> None:
     runtime = create_demo_runtime()
-    app = create_execution_app(runtime.executor)
+    app = create_execution_app(runtime.executor, TEST_AUTHENTICATOR)
 
     unknown = post(app, payload(version="2.0.0"))
     invalid = post(app, payload(arguments={"a": "two", "b": 3}))
@@ -76,7 +103,7 @@ def test_gateway_maps_unknown_tool_invalid_input_and_missing_binding() -> None:
     runtime = create_demo_runtime()
     reference = ToolRef.parse("demo.math.add@1.0.0")
     runtime.bindings.unbind(reference)
-    missing = post(create_execution_app(runtime.executor), payload())
+    missing = post(create_execution_app(runtime.executor, TEST_AUTHENTICATOR), payload())
 
     assert unknown.status_code == 404
     assert unknown.json()["error"]["code"] == "tool_not_found"
@@ -89,7 +116,7 @@ def test_gateway_maps_unknown_tool_invalid_input_and_missing_binding() -> None:
 
 def test_gateway_returns_stable_envelope_for_invalid_reference_or_body() -> None:
     runtime = create_demo_runtime()
-    app = create_execution_app(runtime.executor)
+    app = create_execution_app(runtime.executor, TEST_AUTHENTICATOR)
 
     invalid_reference = post(app, payload(namespace="Demo"))
     invalid_body = post(app, {"tool": "not-an-object"})
@@ -105,10 +132,11 @@ def test_gateway_returns_stable_envelope_for_invalid_reference_or_body() -> None
 
 def test_gateway_does_not_leak_unexpected_internal_exception() -> None:
     class ExplodingExecutor:
-        async def execute(self, _request: object) -> object:
+        async def execute(self, _request: object, *, principal: Principal | None = None) -> object:
+            del principal
             raise RuntimeError("secret internal stack detail")
 
-    app = create_execution_app(ExplodingExecutor())  # type: ignore[arg-type]
+    app = create_execution_app(ExplodingExecutor(), TEST_AUTHENTICATOR)  # type: ignore[arg-type]
     response = post(app, payload())
 
     assert response.status_code == 500
@@ -124,7 +152,7 @@ def test_gateway_generated_request_ids_are_not_caller_controlled() -> None:
     body = payload()
     body["request_id"] = attempted_id
 
-    response = post(create_execution_app(runtime.executor), body)
+    response = post(create_execution_app(runtime.executor, TEST_AUTHENTICATOR), body)
 
     assert response.status_code == 422
     assert response.json()["request_id"] != attempted_id
@@ -133,13 +161,15 @@ def test_gateway_generated_request_ids_are_not_caller_controlled() -> None:
 def test_demo_gateway_module_exposes_runnable_fastapi_app() -> None:
     response = post(demo_app, payload(arguments={"a": 1, "b": 4}))
 
-    assert response.status_code == 200
-    assert response.json()["result"] == {"sum": 5}
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "authentication_failed"
 
 
 @pytest.mark.parametrize(
     ("code", "expected_status", "upstream_status"),
     [
+        (ExecutionErrorCode.AUTHENTICATION_FAILED, 401, None),
+        (ExecutionErrorCode.AUTHORIZATION_FAILED, 403, None),
         (ExecutionErrorCode.MUTATION_NOT_SUPPORTED, 409, None),
         (ExecutionErrorCode.UPSTREAM_TIMEOUT, 504, None),
         (ExecutionErrorCode.ADAPTER_FAILURE, 502, None),
@@ -167,11 +197,17 @@ def test_gateway_maps_internal_categories_without_changing_error_code(
     )
 
     class FixedFailureExecutor:
-        async def execute(self, _request: object) -> ExecutionFailure:
+        async def execute(
+            self,
+            _request: object,
+            *,
+            principal: Principal | None = None,
+        ) -> ExecutionFailure:
+            del principal
             return failure
 
     response = post(
-        create_execution_app(FixedFailureExecutor()),  # type: ignore[arg-type]
+        create_execution_app(FixedFailureExecutor(), TEST_AUTHENTICATOR),  # type: ignore[arg-type]
         payload(),
     )
 

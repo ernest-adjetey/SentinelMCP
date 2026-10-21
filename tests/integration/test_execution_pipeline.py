@@ -13,11 +13,19 @@ from sentinelmcp.execution import (
     ExecutionRequest,
     ExecutionSuccess,
 )
+from sentinelmcp.policy import Principal
+
+TEST_PRINCIPAL = Principal("integration-test", "https://issuer.test")
 
 
 def execute(tool: str, arguments: dict[str, object]) -> ExecutionSuccess | ExecutionFailure:
     runtime = create_demo_runtime()
-    result = asyncio.run(runtime.executor.execute(ExecutionRequest(ToolRef.parse(tool), arguments)))
+    result = asyncio.run(
+        runtime.executor.execute(
+            ExecutionRequest(ToolRef.parse(tool), arguments),
+            principal=TEST_PRINCIPAL,
+        )
+    )
     assert isinstance(result, ExecutionSuccess | ExecutionFailure)
     return result
 
@@ -68,7 +76,12 @@ def test_registered_demo_tool_without_binding_is_structured() -> None:
     reference = ToolRef.parse("demo.math.add@1.0.0")
     runtime.bindings.unbind(reference)
 
-    result = asyncio.run(runtime.executor.execute(ExecutionRequest(reference, {"a": 2, "b": 3})))
+    result = asyncio.run(
+        runtime.executor.execute(
+            ExecutionRequest(reference, {"a": 2, "b": 3}),
+            principal=TEST_PRINCIPAL,
+        )
+    )
 
     assert isinstance(result, ExecutionFailure)
     assert result.error.code is ExecutionErrorCode.BINDING_NOT_FOUND
