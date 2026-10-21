@@ -8,7 +8,7 @@
 - `concurrency/`: race conditions, leases, idempotency, and cancellation
 - `property/`: generated schema, canonicalization, and state-machine cases
 
-Phase 4 runs the registry contract against memory and PostgreSQL and uses real PostgreSQL for
-migration, restart, corruption, failure, gateway, and race tests. Set
+Phases 4 and 6 use real PostgreSQL for registry and mutation migration, restart, corruption,
+failure, gateway, rollback, and race tests. Set
 `SENTINELMCP_TEST_DATABASE_URL` to run that lane. PostgreSQL cases skip with an explicit reason
 when the variable is absent locally; CI always provides it and runs the complete suite.
