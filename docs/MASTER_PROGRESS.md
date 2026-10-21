@@ -6,30 +6,34 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Phase 9 replay and debugging CLI
-- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8
+- **Current phase:** Phase 10 official MCP integration
+- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9
 - **Completed Phase 7 HEAD:** `ae4aefb` (`main`, Checkpoint Phase 7 completion)
 - **Completed Phase 8 implementation HEAD:** `424496a` (`main`, Document and provision Phase 8
   operations); runtime and tests are in `76d09d3`
-- **Uncommitted work:** This Phase 8 checkpoint transition only
+- **Completed Phase 9 implementation HEAD:** `3869d71` (`main`, Add constrained replay and
+  operator CLI); documentation is in `d35b256`
+- **Uncommitted work:** This Phase 9 checkpoint transition only
 - **Staged work:** None
 - **Remote:** None configured
 
 ## Last verified evidence
 
-- Complete suite: 472 passed, 0 skipped, 0 warnings
-- Branch coverage: 95.76%
-- Real PostgreSQL lane: 50 collected and passed in the complete suite
-- Ruff format: passed (138 files); Ruff lint: passed
-- Strict mypy: passed (98 files)
+- Complete suite: 507 passed, 0 skipped, 0 warnings
+- Branch coverage: 96.11%
+- Real PostgreSQL lane: 50/507 tests collected and passed in the complete suite
+- Ruff format: passed (151 files); Ruff lint: passed
+- Strict mypy: passed (109 files)
 - Markdown-link and package-layout tests: 16 passed with coverage disabled for the focused lane
-- Phase 8 source distribution and wheel: built from the source distribution and inspected
-- Artifact audit/telemetry modules, migration, documentation, Apache-2.0 license files, and license
-  metadata: verified
-- Phase 8 sdist SHA-256: `0656a539c8abccd8db4ff6b7c9b5e3caa5a191e5036567feff12c7797a2977bc`
-- Phase 8 wheel SHA-256: `388145642f8a877ae760186ab70a09bc431424ed03744f54b5b246b4e55a4e2d`
-- Isolated installed-wheel dependency check: passed
-- Installed-wheel PostgreSQL audit and Prometheus telemetry smoke: passed
+- Phase 9 source distribution built and inspected; wheel built from the extracted source
+  distribution and inspected
+- Replay/CLI modules, documentation, Apache-2.0 license files, license metadata, and `sentinel`
+  console entry point: verified
+- Phase 9 sdist SHA-256: `8e900ff0da70ccb7bbe1486af7fc0be02105b01556b5d171cef2487ae9f1b916`
+- Phase 9 wheel SHA-256: `06c4acae685a042acf51386630bc7b071983df67c981e10c85ecaa195c2df4b7`
+- Isolated installed-wheel dependency check: passed with the workspace dependency runtime supplied
+- Installed-wheel tools list, execute/capture, inspect, dry-run replay, replay, evaluation smoke,
+  and bounded benchmark workflow: passed
 - Alembic CLI upgrade, downgrade to base, and second upgrade to revision `0003` head: passed
 - Docker Compose v5.6.0 configuration validation: passed
 - Grafana dashboard JSON validation: passed (7 panels)
@@ -37,7 +41,8 @@ diff. Update it after every significant milestone and commit.
   configuration review passed
 - PostgreSQL: project-local PostgreSQL 17.11 verified on `127.0.0.1:54329`
 - Test URL: `postgresql+psycopg://sentinelmcp_test@127.0.0.1:54329/sentinelmcp_test`
-- Benchmark status: not started; no performance claims exist
+- Benchmark status: only the bounded Phase 9 diagnostic command has run; no reproducible benchmark
+  artifact or performance claim exists
 
 ## Known limitations
 
@@ -48,8 +53,12 @@ diff. Update it after every significant milestone and commit.
   there is no automatic redrive or reconciliation command yet.
 - Reliability controls are opt-in and process-local; they provide no global multi-replica rate,
   retry, or circuit bound and retain observed keys for the process lifetime.
-- Downstream idempotency-key propagation, replay, MCP transport, evaluation, and benchmarks are not
-  implemented yet.
+- Downstream idempotency-key propagation, MCP transport, fault evaluation, and reproducible
+  benchmarks are not implemented yet.
+- Replay defaults to explicitly marked synthetic read bindings, current reauthorization, and a
+  final pre-dispatch binding guard. The standalone CLI audit store is process-local, and its local
+  replay files are unencrypted and not tamper-proof. Sensitive-key rejection cannot detect a secret
+  stored under an innocuous field name.
 - Audit APIs are append-oriented but are not cryptographically tamper-proof; a privileged database
   administrator can alter storage. There is no retention or external audit export policy.
 - OpenTelemetry span delivery is not guaranteed, and process-local Prometheus samples can be lost
@@ -64,12 +73,12 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Define a versioned replay-safe execution record and contract-drift policy that references exact
-   `ToolRef` and historical fingerprint without weakening Phase 8 payload-exclusion guarantees.
-2. Add the `sentinel` CLI entry point with tools list/describe, execute, inspect, replay, eval run,
-   and benchmark run commands over the existing application services.
-3. Default replay to synthetic/replay-safe bindings, prove live mutation replay cannot occur
-   silently, then document limitations and run the complete Phase 9 quality gate.
+1. Verify the current official MCP Python SDK API and supported transport lifecycle from primary
+   documentation before choosing the adapter boundary and dependency range.
+2. Implement MCP tool discovery and invocation as a thin transport adapter over the existing exact
+   registry, authentication/authorization context, and `ToolExecutor` path.
+3. Prove exact-version naming, schema exposure, error translation, cancellation, and execution
+   parity with focused protocol tests, then run the complete Phase 10 quality gate.
 
 ## Resume commands
 
