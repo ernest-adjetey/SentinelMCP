@@ -31,6 +31,7 @@ from sentinelmcp.execution import (
     RequestId,
     RuntimeBindingResolver,
 )
+from sentinelmcp.policy import AuthorizationDecision, AuthorizationPolicy, Principal
 from sentinelmcp.registry import (
     ToolRegistry,
     fingerprint_tool_definition,
@@ -39,9 +40,13 @@ from sentinelmcp.registry import (
 
 _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
     ExecutionErrorCode.INVALID_REQUEST: "The execution request is invalid.",
+    ExecutionErrorCode.AUTHENTICATION_FAILED: "Caller authentication is required.",
     ExecutionErrorCode.TOOL_NOT_FOUND: "The requested exact tool version is not registered.",
     ExecutionErrorCode.INPUT_VALIDATION_FAILED: (
         "Arguments do not satisfy the registered input schema."
+    ),
+    ExecutionErrorCode.AUTHORIZATION_FAILED: (
+        "The authenticated caller is not authorized for this tool operation."
     ),
     ExecutionErrorCode.MUTATION_NOT_SUPPORTED: (
         "Mutation execution is unavailable until confirmation safeguards are implemented."
@@ -81,6 +86,7 @@ class ToolExecutor:
     """Execute exactly one validated tool invocation without retries."""
 
     __slots__ = (
+        "_authorization_policy",
         "_bindings",
         "_execution_id_factory",
         "_monotonic",
@@ -94,6 +100,7 @@ class ToolExecutor:
         registry: ToolRegistry,
         bindings: RuntimeBindingResolver,
         *,
+        authorization_policy: AuthorizationPolicy,
         request_id_factory: Callable[[], RequestId] = RequestId.generate,
         execution_id_factory: Callable[[], ExecutionId] = ExecutionId.generate,
         wall_clock: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -105,8 +112,14 @@ class ToolExecutor:
         self._execution_id_factory = execution_id_factory
         self._wall_clock = wall_clock
         self._monotonic = monotonic
+        self._authorization_policy = authorization_policy
 
-    async def execute(self, request: ExecutionRequest) -> ExecutionResult:
+    async def execute(
+        self,
+        request: ExecutionRequest,
+        *,
+        principal: Principal | None = None,
+    ) -> ExecutionResult:
         """Run the Phase 3 lifecycle for one exact immutable tool version."""
 
         started_monotonic = self._monotonic()
@@ -147,6 +160,17 @@ class ToolExecutor:
             )
         except Exception:
             return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+
+        if principal is None:
+            return self._failure(context, ExecutionErrorCode.AUTHENTICATION_FAILED)
+        try:
+            decision = self._authorization_policy.authorize(principal, definition)
+            if not isinstance(decision, AuthorizationDecision):
+                raise TypeError("authorization policy returned an invalid decision")
+        except Exception:
+            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+        if not decision.allowed:
+            return self._failure(context, ExecutionErrorCode.AUTHORIZATION_FAILED)
 
         if definition.operation_class is OperationClass.MUTATION:
             return self._failure(context, ExecutionErrorCode.MUTATION_NOT_SUPPORTED)

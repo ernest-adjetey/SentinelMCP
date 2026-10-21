@@ -19,6 +19,7 @@ from sentinelmcp.execution import (
     RuntimeToolBinding,
     SyntheticToolAdapter,
 )
+from sentinelmcp.policy import AuthorizationRule, PolicyEffect, RuleBasedAuthorizationPolicy
 from sentinelmcp.registry import InMemoryToolRegistry
 
 
@@ -44,10 +45,17 @@ def create_demo_runtime() -> DemoRuntime:
         registry.register(definition)
         bindings.bind(RuntimeToolBinding(definition.ref, adapter))
 
+    policy = RuleBasedAuthorizationPolicy(
+        tuple(
+            AuthorizationRule(PolicyEffect.ALLOW, definition.identity, definition.operation_class)
+            for definition, _adapter in tools
+        )
+    )
+
     return DemoRuntime(
         registry=registry,
         bindings=bindings,
-        executor=ToolExecutor(registry, bindings),
+        executor=ToolExecutor(registry, bindings, authorization_policy=policy),
     )
 
 

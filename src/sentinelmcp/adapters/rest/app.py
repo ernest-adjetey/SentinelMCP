@@ -26,6 +26,7 @@ from sentinelmcp.execution import (
     InvalidExecutionRequestError,
     RequestId,
 )
+from sentinelmcp.policy import AuthenticationError, Authenticator
 
 
 class ToolReferencePayload(BaseModel):
@@ -47,7 +48,7 @@ class ExecutePayload(BaseModel):
     arguments: dict[str, Any]
 
 
-def create_execution_app(executor: ToolExecutor) -> FastAPI:
+def create_execution_app(executor: ToolExecutor, authenticator: Authenticator) -> FastAPI:
     """Create a gateway around an already-composed core executor."""
 
     app = FastAPI(title="SentinelMCP", version="0.1.0a0")
@@ -71,7 +72,25 @@ def create_execution_app(executor: ToolExecutor) -> FastAPI:
         )
 
     @app.post("/v1/execute", response_model=None)
-    async def execute_tool(payload: ExecutePayload) -> JSONResponse:
+    async def execute_tool(payload: ExecutePayload, request: Request) -> JSONResponse:
+        token = _bearer_token(request.headers.get("authorization"))
+        if token is None:
+            return _gateway_error_response(
+                status_code=401,
+                code=ExecutionErrorCode.AUTHENTICATION_FAILED,
+                message="A valid bearer token is required.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        try:
+            principal = authenticator.authenticate(token)
+        except AuthenticationError:
+            return _gateway_error_response(
+                status_code=401,
+                code=ExecutionErrorCode.AUTHENTICATION_FAILED,
+                message="A valid bearer token is required.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         try:
             tool_ref = ToolRef(
                 namespace=ToolNamespace(payload.tool.namespace),
@@ -89,7 +108,7 @@ def create_execution_app(executor: ToolExecutor) -> FastAPI:
                 message="Tool reference or arguments are invalid.",
             )
 
-        result = await executor.execute(execution_request)
+        result = await executor.execute(execution_request, principal=principal)
         if isinstance(result, ExecutionSuccess):
             return JSONResponse(status_code=200, content=_success_content(result))
         return JSONResponse(
@@ -143,9 +162,11 @@ def _gateway_error_response(
     status_code: int,
     code: ExecutionErrorCode,
     message: str,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
+        headers=headers,
         content={
             "request_id": str(RequestId.generate()),
             "tool": None,
@@ -158,6 +179,10 @@ def _gateway_error_response(
 
 def _http_status_for_failure(result: ExecutionFailure) -> int:
     code = result.error.code
+    if code is ExecutionErrorCode.AUTHENTICATION_FAILED:
+        return 401
+    if code is ExecutionErrorCode.AUTHORIZATION_FAILED:
+        return 403
     if code is ExecutionErrorCode.TOOL_NOT_FOUND:
         return 404
     if code in {ExecutionErrorCode.INVALID_REQUEST, ExecutionErrorCode.INPUT_VALIDATION_FAILED}:
@@ -175,3 +200,12 @@ def _http_status_for_failure(result: ExecutionFailure) -> int:
     if code is ExecutionErrorCode.INTERNAL_EXECUTION_ERROR:
         return 500
     return 502
+
+
+def _bearer_token(authorization: str | None) -> str | None:
+    if authorization is None:
+        return None
+    scheme, separator, token = authorization.partition(" ")
+    if not separator or scheme.casefold() != "bearer" or not token or token != token.strip():
+        return None
+    return token

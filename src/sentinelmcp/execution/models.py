@@ -145,8 +145,10 @@ class ExecutionErrorCode(StrEnum):
     """Stable Phase 3 execution failure categories."""
 
     INVALID_REQUEST = "invalid_request"
+    AUTHENTICATION_FAILED = "authentication_failed"
     TOOL_NOT_FOUND = "tool_not_found"
     INPUT_VALIDATION_FAILED = "input_validation_failed"
+    AUTHORIZATION_FAILED = "authorization_failed"
     MUTATION_NOT_SUPPORTED = "mutation_not_supported"
     BINDING_NOT_FOUND = "binding_not_found"
     ADAPTER_FAILURE = "adapter_failure"
