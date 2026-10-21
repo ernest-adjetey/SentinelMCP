@@ -249,9 +249,10 @@ process-local.
 
 ### PostgreSQL: durable source of truth
 
-Tool versions, confirmation challenges, and idempotency records are implemented as durable
-records. Policy metadata, audit events, and replay metadata remain planned for their owning
-phases. Production schema changes use Alembic rather than runtime table creation.
+Tool versions, confirmation challenges, idempotency records, and payload-free audit events are
+implemented as durable records. Policy and replay metadata remain planned for their owning phases.
+Production schema changes use Alembic rather than runtime table creation. Audit APIs are
+append-oriented but PostgreSQL is not claimed to be cryptographically tamper-proof.
 
 ### Redis: coordination and acceleration
 
@@ -283,13 +284,16 @@ limits, and ambiguous-outcome handling.
 
 ## 10. Observability
 
-Traces capture the request lifecycle and retry attempts. Metrics use bounded labels such as
-tool name, operation class, outcome category, and circuit state. Logs are structured and
+Traces capture the gateway, authentication, execution stages, retries, and audit boundary. Metrics
+use only bounded labels such as operation class, finite route, normalized outcome, audit phase,
+idempotency disposition, and circuit state. Exact tool names, principals, request/execution IDs,
+URLs, tokens, and arbitrary errors are forbidden metric labels. Logs are structured, bounded, and
 redacted before emission.
 
 Audit events are not reconstructed from logs or traces. They are explicit domain records with
-a versioned schema. Trace export failure must not mutate the business outcome; required audit
-persistence follows the configured safety policy.
+a versioned schema. Trace export failure must not mutate the business outcome; tracing does not
+guarantee delivery, and metrics may be lost between scrapes. Required audit persistence follows the
+read/mutation policy in [Audit contract](AUDIT.md).
 
 ## 11. Scaling path
 
@@ -304,6 +308,7 @@ performance fix unless queueing, consistency, and failure behavior are measured.
 
 ## 12. Deployment topology
 
-Local development will use Docker Compose for the gateway, synthetic tools, PostgreSQL,
-Redis, OpenTelemetry Collector, Prometheus, and Grafana. Production deployment manifests are
-out of scope until the interfaces and failure behavior stabilize.
+Local Docker Compose currently provisions PostgreSQL, Prometheus, and Grafana. The gateway runs on
+the host and exposes its private Prometheus registry at `/metrics`; no Redis, gateway container, or
+OpenTelemetry Collector is claimed by the current stack. Production deployment manifests are out
+of scope until the interfaces and failure behavior stabilize.

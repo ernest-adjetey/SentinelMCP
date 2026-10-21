@@ -198,8 +198,20 @@ rejections expose bounded `retry_after_ms` guidance. See [Reliability controls](
 - There is no endpoint allowlist, DNS/IP policy, credential injection, or redirect policy beyond
   refusing redirects. The HTTP adapter is not production-safe for untrusted target configuration.
 - There is no token issuance, remote key discovery, revocation, persisted policy, delegated
-  agent identity, distributed binding coordination, audit, telemetry, or replay.
+  agent identity, distributed binding coordination, or replay.
   Mutation safety is durable, but downstream idempotency propagation and automated
   reconciliation are not implemented. Runtime bindings remain process-local.
 - There is no MCP transport adapter or CLI execution command yet. Both can call the same core
   executor once their boundary contracts are implemented.
+
+## Audit and observability
+
+The executor emits finite stage spans for exact lookup, input validation, authorization, rate
+admission, runtime binding, attempts, output validation, and audit recording. The REST adapter owns
+gateway and authentication spans. Instrumentation uses protocols and OpenTelemetry API types; core
+domain objects do not depend on an SDK.
+
+Read terminal audit is attempted after the normalized result exists, and failure preserves that
+result. Mutations append a durable dispatch intent before the adapter call. A failed intent append
+prevents dispatch; a failed completion append after dispatch returns `mutation_outcome_unknown`.
+See [Audit contract](AUDIT.md) and [Observability](OBSERVABILITY.md).

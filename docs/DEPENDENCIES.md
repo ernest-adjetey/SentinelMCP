@@ -18,6 +18,8 @@ covers maintenance activity, license, transitive footprint, security posture, an
 | psycopg | Runtime | Supported PostgreSQL 3 driver with binary wheels for local and CI environments |
 | Alembic | Runtime tooling | Versioned, reviewable PostgreSQL schema upgrades and downgrades |
 | PyJWT with crypto extra | Runtime | Standards-aware signed-JWT validation with asymmetric algorithm support |
+| opentelemetry-api | Runtime | SDK-neutral tracing contracts and span instrumentation |
+| prometheus-client | Runtime | Isolated metric registries and standards-compatible text exposition |
 | Hatchling | Build only | Minimal PEP 517 backend for the `src` package layout |
 | Hypothesis | Development | Generated invariant tests for canonicalization, registry state, and validation |
 | Pytest | Development | Test discovery, fixtures, parametrization, and future async/plugin ecosystem |
@@ -25,6 +27,7 @@ covers maintenance activity, license, transitive footprint, security posture, an
 | Ruff | Development | One fast formatter and linter replaces several overlapping tools |
 | mypy | Development | Strict static checking for public contracts and async control flow |
 | types-jsonschema | Development | PEP 561 stubs for the otherwise untyped jsonschema import boundary |
+| opentelemetry-sdk | Development | In-memory span export and processor tests; deployment SDK remains host-configured |
 
 ### Phase 2 and 3 dependency review
 
@@ -76,12 +79,23 @@ algorithm confusion, signature failure, unknown keys, malformed claims, issuer/a
 time validation. Installed metadata reports MIT for PyJWT, Apache-2.0 OR BSD-3-Clause for
 cryptography, MIT-0 for `cffi`, and BSD-3-Clause for `pycparser`.
 
+### Phase 8 dependency choice
+
+`opentelemetry-api` is the only OpenTelemetry runtime dependency. Application protocols and the
+instrumentation implementation do not import SDK providers, processors, samplers, or exporters. The
+SDK is development-only so tests can inspect completed spans with the official in-memory exporter;
+an embedding service selects its deployment SDK and export pipeline.
+
+`prometheus-client` owns metric primitives and text exposition. SentinelMCP uses a private injected
+`CollectorRegistry` instead of process-global registration, and every label value comes from a
+finite enum or normalized error code. Replacing it would require compatible counter, gauge,
+histogram, and exposition semantics.
+
 ## Planned runtime dependencies
 
 Additional runtime packages are added only in the phase that uses them. Expected future choices
-include the official MCP SDK where it supports the required transport, Redis's supported Python
-client if coordination requirements emerge, OpenTelemetry for traces, and prometheus-client
-for metrics.
+include the official MCP SDK where it supports the required transport and Redis's supported Python
+client if coordination requirements emerge.
 
 The dependency list in the project brief is a design constraint, not permission to install
 every package before code requires it.

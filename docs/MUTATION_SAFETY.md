@@ -45,7 +45,8 @@ through 30 minutes.
 
 ## Atomic claim transaction
 
-Alembic revision `0002` creates `mutation_challenges` and `mutation_idempotency`. Confirmation
+Alembic revision `0002` creates `mutation_challenges` and `mutation_idempotency`; revision `0003`
+adds the terminal `failed` state used when required pre-dispatch audit cannot be persisted. Confirmation
 uses one PostgreSQL transaction:
 
 1. insert a `pending` idempotency record with `ON CONFLICT DO NOTHING` on the scoped key;
@@ -68,6 +69,7 @@ terminal state without dispatching again.
 | State | Meaning | Duplicate behavior |
 | --- | --- | --- |
 | `pending` | SentinelMCP accepted the claim but has no durable terminal outcome | Return `idempotency_in_progress`; never auto-redrive |
+| `failed` | A required pre-dispatch control failed and no adapter call occurred | Return the original normalized failure; never dispatch |
 | `succeeded` | A schema-valid success was durably serialized | Return the original result and identifiers |
 | `outcome_unknown` | Dispatch failed, returned a failure, or terminal persistence could not be proven | Return the stored failure when available; never auto-redrive |
 
@@ -91,6 +93,12 @@ it.
 This is at-most-one automatic dispatch per accepted local idempotency record, not universal
 exactly-once delivery.
 
+The audit boundary strengthens but does not eliminate this ambiguity. SentinelMCP appends a
+payload-free dispatch intent before invoking the adapter. Failure to append that intent marks the
+claim `failed` and prevents dispatch. After dispatch it appends a normalized completion event;
+failure to append that event is persisted and returned as `mutation_outcome_unknown`, never as a
+claim that the mutation failed safely. See [Audit contract](AUDIT.md).
+
 ## Failure behavior
 
 - PostgreSQL failure before the claim commits returns `mutation_state_unavailable` and no
@@ -99,6 +107,9 @@ exactly-once delivery.
   `mutation_confirmation_invalid` and no adapter is invoked.
 - A same-scope different request returns `idempotency_conflict` and no adapter is invoked.
 - A concurrent pending duplicate returns `idempotency_in_progress` and no adapter is invoked.
+- Failure to persist pre-dispatch audit intent returns `audit_unavailable`, durably marks the claim
+  `failed`, and invokes no adapter.
+- Failure to persist completion audit after dispatch returns `mutation_outcome_unknown`.
 - Failure to persist a terminal outcome after dispatch returns `mutation_outcome_unknown`.
 
 Public errors collapse token-rejection reasons and never include the token, arguments, SQL,

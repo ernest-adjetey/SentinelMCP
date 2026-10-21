@@ -6,7 +6,7 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 7 are complete. SentinelMCP can durably register exact
+> **Project status:** Phases 1 through 8 are complete. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
 > confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
@@ -80,6 +80,13 @@ See [Architecture](docs/ARCHITECTURE.md) and
 - Read-only transient retries with capped exponential full jitter and aggregate retry budgets
 - Thread-safe token-bucket admission and generation-safe three-state circuit breaking
 - Stable local-rate-limit, circuit-open, and deadline-exhausted transport errors
+- Versioned payload-free audit events with append-oriented PostgreSQL persistence and deterministic
+  request/execution lookup
+- Mutation pre-dispatch audit intent with fail-closed behavior and honest post-dispatch unknown
+  outcomes
+- OpenTelemetry API lifecycle spans, bounded structured JSON logs, and low-cardinality Prometheus
+  metrics exposed through an optional `/metrics` endpoint
+- Provisioned local Prometheus and Grafana configuration with a signal-focused dashboard
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
@@ -88,12 +95,13 @@ The full behavioral contract and current limits are in
 [Security model](docs/SECURITY_MODEL.md). Mutation delivery limits are documented in
 [Mutation safety](docs/MUTATION_SAFETY.md).
 [Reliability controls](docs/RELIABILITY.md) defines the retry matrix and deployment limits.
+[Audit contract](docs/AUDIT.md) and [Observability](docs/OBSERVABILITY.md) define the evidence,
+telemetry, redaction, and failure policies.
 
 ## Planned capabilities
 
-- MCP entry point sharing the transport-independent execution contract
-- Redacted append-only audit events and deterministic replay against synthetic services
-- OpenTelemetry traces, Prometheus metrics, and checked-in Grafana dashboards
+- Deterministic replay and debugging CLI against synthetic services
+- Official MCP entry point sharing the transport-independent execution contract
 - Fault injection, reliability evaluation, and reproducible performance benchmarks
 
 ## Repository map
@@ -165,14 +173,12 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 5 | Authentication and authorization | Complete |
 | 6 | Mutation confirmation and idempotency | Complete |
 | 7 | Retries, deadlines, circuit breakers, error normalization | Complete |
-| 8 | OpenTelemetry, Prometheus, Grafana | Planned |
-| 9 | Synthetic tools and fault injection | Planned |
-| 10 | Replay | Planned |
-| 11 | Reliability evaluation | Planned |
-| 12 | Performance benchmarking | Planned |
-| 13 | Optional React dashboard | Deferred decision |
-| 14 | Test and CI hardening | Planned |
-| 15 | Documentation and release polish | Planned |
+| 8 | Durable audit, OpenTelemetry, Prometheus, Grafana | Complete |
+| 9 | Replay and debugging CLI | Planned |
+| 10 | Official MCP integration | Planned |
+| 11 | Fault injection and reliability evaluation | Planned |
+| 12 | Performance benchmarking and profiling | Planned |
+| 13 | Release, portfolio, security, and documentation polish | Planned |
 
 ## Benchmarks
 

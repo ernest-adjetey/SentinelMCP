@@ -149,6 +149,20 @@ These controls are disabled unless explicitly injected and are process-local. Th
 global multi-replica limits nor bound retained scope records; deployments with those requirements
 must provide protocol implementations with atomic shared state and bounded retention.
 
+## Phase 8 implemented controls
+
+- Audit records use a strict versioned schema with no argument/result payload fields.
+- Mutation dispatch requires a durable audit intent; post-dispatch audit failure becomes an honest
+  unknown outcome.
+- Recursive logging redaction bounds keys, values, depth, and collection size before JSON emission.
+- Span names and attributes are allowlisted, and automatic exception text recording is disabled.
+- Prometheus labels are finite and omit exact tools, principals, IDs, URLs, tokens, and free-form
+  errors.
+- Telemetry provider/exporter failures cannot replace an application outcome.
+
+Audit storage remains administrator-mutable and therefore is not a WORM or cryptographically
+tamper-proof ledger. Trace and metric delivery are best effort.
+
 ## Threats and controls
 
 | Threat | Planned controls | Residual risk / validation |
@@ -164,9 +178,9 @@ must provide protocol implementations with atomic shared state and bounded reten
 | Retry amplification | Retry budgets, jitter, global deadline, circuit breaker, no unsafe mutation retry | Multiple gateway tiers can still amplify if budgets are not propagated |
 | Malicious upstream response | Status/content-type/size/schema checks before decoding; normalized error envelope | Semantically malicious valid JSON needs tool-specific validation |
 | Credential disclosure | Secret manager integration, per-tool credentials, redaction before telemetry, no credentials in registry rows | Memory inspection is outside current scope |
-| Audit tampering | Insert-only application role, event hashes and sequence checks, restricted retention administration | Database administrator can still alter storage; true WORM is future work |
-| Telemetry data leak | Allowlisted attributes, sensitive-field filters, bounded body previews, no raw confirmation tokens | Tool-specific secrets need registry annotations |
-| Cardinality attack | Bounded metric labels; request and trace IDs only in logs/traces | Unbounded tool names are prevented by registry constraints |
+| Audit tampering | Append-oriented application API, strict rows, conflicting-ID detection, restricted database role recommended | Database administrator can still alter storage; signing, sequence hashes, and WORM retention are not implemented |
+| Telemetry data leak | Allowlisted trace attributes, recursive structured-log redaction, no payloads or tokens | Logs and traces still contain bounded correlation metadata and require access control |
+| Cardinality attack | Finite metric labels; exact tools, principals, request IDs, and execution IDs omitted | Additional metrics must preserve the allowlist |
 | Rate-limit bypass | Implemented trusted-principal/exact-tool token bucket | State is process-local; replicas do not share a global limit |
 | Circuit-state poisoning | Implemented health-failure classification and generation-bound probes | Exact-tool local keys do not coordinate shared endpoints or replicas |
 | Replay abuse | Synthetic targets only by default; privileged command; reauthorization; dry-run mode; audit replay attempts | Operator compromise remains high impact |

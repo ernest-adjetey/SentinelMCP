@@ -112,8 +112,8 @@ The process-local circuit breaker has three states:
   failure reopens it.
 
 Only dependency-health failures affect the breaker. Caller validation errors, authorization
-rejections, and expected not-found results do not. Telemetry for state transitions remains Phase
-8 work.
+rejections, and expected not-found results do not. Aggregate transition metrics use only finite
+state labels and never expose exact tool references.
 
 ## Ambiguous mutation outcomes
 
@@ -127,12 +127,14 @@ command remains later work.
 
 | Dependency | Reads | Mutations |
 | --- | --- | --- |
-| PostgreSQL unavailable | Fail if registry/audit data cannot be served safely | Fail closed |
+| PostgreSQL registry unavailable | Fail before execution | Fail before execution |
+| PostgreSQL audit unavailable | Preserve the normalized read result and emit best-effort telemetry | Fail closed before dispatch; report unknown after dispatch |
 | Shared reliability backend unavailable | Not implemented; built-ins remain process-local | Do not claim cross-replica bounds |
 | Trace exporter unavailable | Continue and record exporter health locally | Continue if audit is durable |
 | Prometheus scrape unavailable | Execution continues | Execution continues |
 
-PostgreSQL and exporter policies are executable only as their owning phases implement them.
+Audit behavior is executable and tested. Trace and metric export remain best effort and do not
+guarantee delivery.
 
 ## Shutdown and cancellation
 

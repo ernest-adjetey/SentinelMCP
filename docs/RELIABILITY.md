@@ -63,6 +63,10 @@ The key is the immutable `ToolRef`, not a physical endpoint. Runtime bindings ar
 process-local and do not expose a stable endpoint identity. Tools sharing one dependency therefore
 do not share a circuit unless a future binding model introduces an explicit dependency key.
 
+An optional dependency-neutral observer reports aggregate circuit creation and finite state
+transitions. The Prometheus implementation maintains per-state gauges and transition counters
+without exposing exact tool references as labels. Observer failure cannot change circuit behavior.
+
 ## Rate limiting
 
 The in-memory limiter uses continuously refilled token buckets keyed by verified principal and
