@@ -6,20 +6,25 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Phase 7 reliability control design
-- **Completed phases:** 1, 2, 3, 4, 5, 6
-- **Completed Phase 6 HEAD:** `30b4e35` (`main`, Document Phase 6 mutation safety)
-- **Uncommitted work:** This Phase 7 checkpoint transition only
+- **Current phase:** Phase 8 observability and durable-audit design
+- **Completed phases:** 1, 2, 3, 4, 5, 6, 7
+- **Completed Phase 7 HEAD:** `e68e61b` (`main`, Document Phase 7 reliability semantics)
+- **Uncommitted work:** This Phase 8 checkpoint transition only
 - **Staged work:** None
 - **Remote:** None configured
 
 ## Last verified evidence
 
-- Complete suite: 377 passed, 0 skipped, 0 warnings
-- Branch coverage: 95.76%
+- Complete suite: 399 passed, 0 skipped, 0 warnings
+- Branch coverage: 95.51%
 - Real PostgreSQL lane: 45 collected and passed in the complete suite
 - Ruff format and lint: passed
-- Strict mypy: passed (78 source files)
+- Strict mypy: passed (82 source files)
+- Markdown-link and package-layout tests: 16 passed with coverage disabled for the focused lane
+- Phase 7 wheel and source distribution: built from the source distribution and inspected
+- Artifact Apache-2.0 license files and metadata: verified
+- Phase 7 wheel SHA-256: `BD08A949AFDDAD13E897448C79D03FD138D6F77A6D7CD5C7A14352054F76C590`
+- Isolated installed-wheel dependency and reliability smoke: passed
 - Alembic CLI upgrade: passed
 - Docker Compose v5.6.0 configuration validation: passed
 - Phase 6 wheel and source distribution: built and contents inspected
@@ -38,8 +43,10 @@ diff. Update it after every significant milestone and commit.
 - Mutation safety does not provide universal exactly-once effects. A crash before dispatch and
   a crash after an external effect but before terminal persistence can both leave `pending`;
   there is no automatic redrive or reconciliation command yet.
-- Downstream idempotency-key propagation, reliability controls, observability, audit, replay,
-  MCP transport, evaluation, and benchmarks are not implemented yet.
+- Reliability controls are opt-in and process-local; they provide no global multi-replica rate,
+  retry, or circuit bound and retain observed keys for the process lifetime.
+- Downstream idempotency-key propagation, observability, audit, replay, MCP transport, evaluation,
+  and benchmarks are not implemented yet.
 - Authentication uses static configured verification keys; OIDC/JWKS networking, revocation,
   delegated-agent identity, and persisted policy are not implemented.
 - Docker is unavailable on this host; Compose config validation requires a standalone Docker
@@ -47,13 +54,11 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Define request-wide deadline, retry-decision, retry-budget, rate-limit,
-   and circuit-breaker protocols around the existing single-attempt dispatcher.
-2. Preserve mutation safety: no automatic mutation retry without explicit downstream
-   idempotency support and propagation.
-3. Add deterministic clock/randomness tests before introducing operational adapters.
-4. Decide whether process-local rate and circuit state is sufficient for the first executable
-   phase; add Redis only if a proven cross-replica invariant requires it.
+1. Define explicit redaction and versioned audit-event contracts before telemetry exporters.
+2. Add durable PostgreSQL audit persistence and request-lifecycle integration with tested failure
+   policy.
+3. Add OpenTelemetry spans, Prometheus metrics, structured logging, and checked-in local
+   observability configuration with bounded attributes and labels.
 
 ## Resume commands
 
