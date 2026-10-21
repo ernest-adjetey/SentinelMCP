@@ -23,6 +23,7 @@ def test_fresh_upgrade_creates_expected_constraints_and_indexes(
     try:
         inspector = inspect(engine)
         assert {
+            "audit_events",
             "mutation_challenges",
             "mutation_idempotency",
             "tool_definitions",
@@ -59,6 +60,29 @@ def test_fresh_upgrade_creates_expected_constraints_and_indexes(
             for constraint in inspector.get_unique_constraints("mutation_challenges")
         }
         assert challenge_constraints["uq_mutation_challenges_token_digest"] == ("token_digest",)
+
+        audit_indexes = {
+            index["name"]: tuple(index["column_names"])
+            for index in inspector.get_indexes("audit_events")
+        }
+        assert audit_indexes["ix_audit_events_request"] == ("request_id", "recorded_at")
+        assert audit_indexes["ix_audit_events_execution"] == (
+            "execution_id",
+            "recorded_at",
+        )
+        audit_checks = {
+            constraint["name"] for constraint in inspector.get_check_constraints("audit_events")
+        }
+        assert {
+            "ck_audit_events_attempt_count",
+            "ck_audit_events_duration",
+            "ck_audit_events_kind",
+            "ck_audit_events_kind_outcome",
+            "ck_audit_events_operation_class",
+            "ck_audit_events_outcome",
+            "ck_audit_events_schema_version",
+            "ck_audit_events_terminal_shape",
+        } <= audit_checks
 
         command.downgrade(config, "base")
         assert "tool_definitions" not in inspect(engine).get_table_names()

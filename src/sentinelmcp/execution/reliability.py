@@ -6,6 +6,7 @@ import asyncio
 import math
 import random
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from enum import StrEnum
 from threading import Lock
@@ -279,6 +280,19 @@ class CircuitBreaker(Protocol):
         """Release a probe for an outcome unrelated to dependency health."""
 
 
+@runtime_checkable
+class CircuitStateObserver(Protocol):
+    def record_circuit_created(self) -> None:
+        """Record creation of one closed process-local circuit."""
+
+    def record_circuit_transition(
+        self,
+        previous: CircuitState,
+        current: CircuitState,
+    ) -> None:
+        """Record one finite process-local circuit transition."""
+
+
 @dataclass(slots=True)
 class _CircuitRecord:
     state: CircuitState = CircuitState.CLOSED
@@ -292,24 +306,32 @@ class _CircuitRecord:
 class InMemoryCircuitBreaker(CircuitBreaker):
     """Thread-safe process-local circuit state keyed by exact tool version."""
 
-    __slots__ = ("_config", "_lock", "_records")
+    __slots__ = ("_config", "_lock", "_observer", "_records")
 
-    def __init__(self, config: CircuitBreakerConfig | None = None) -> None:
+    def __init__(
+        self,
+        config: CircuitBreakerConfig | None = None,
+        *,
+        observer: CircuitStateObserver | None = None,
+    ) -> None:
+        if observer is not None and not isinstance(observer, CircuitStateObserver):
+            raise TypeError("observer must implement CircuitStateObserver")
         self._config = CircuitBreakerConfig() if config is None else config
+        self._observer = observer
         self._records: dict[ToolRef, _CircuitRecord] = {}
         self._lock = Lock()
 
     def acquire(self, tool_ref: ToolRef, *, now_monotonic: float) -> CircuitDecision:
         _require_finite_non_negative(now_monotonic, field="now_monotonic")
         with self._lock:
-            record = self._records.setdefault(tool_ref, _CircuitRecord())
+            record = self._record(tool_ref)
             if record.state is CircuitState.OPEN:
                 assert record.opened_monotonic is not None
                 elapsed = max(0.0, now_monotonic - record.opened_monotonic)
                 remaining = max(0.0, self._config.open_seconds - elapsed)
                 if remaining > 0:
                     return CircuitDecision(None, remaining)
-                record.state = CircuitState.HALF_OPEN
+                self._transition(record, CircuitState.HALF_OPEN)
                 record.half_open_in_flight = 0
             if record.state is CircuitState.HALF_OPEN:
                 if record.half_open_in_flight >= self._config.half_open_max_probes:
@@ -327,10 +349,11 @@ class InMemoryCircuitBreaker(CircuitBreaker):
     ) -> None:
         _require_finite_non_negative(now_monotonic, field="now_monotonic")
         with self._lock:
-            record = self._records.setdefault(tool_ref, _CircuitRecord())
+            record = self._record(tool_ref)
             if permit.generation != record.generation:
                 return
             if permit.half_open_probe:
+                self._notify_transition(CircuitState.HALF_OPEN, CircuitState.CLOSED)
                 self._records[tool_ref] = _CircuitRecord(generation=record.generation + 1)
                 return
             if record.state is CircuitState.CLOSED:
@@ -345,7 +368,7 @@ class InMemoryCircuitBreaker(CircuitBreaker):
     ) -> None:
         _require_finite_non_negative(now_monotonic, field="now_monotonic")
         with self._lock:
-            record = self._records.setdefault(tool_ref, _CircuitRecord())
+            record = self._record(tool_ref)
             if permit.generation != record.generation:
                 return
             if permit.half_open_probe:
@@ -366,14 +389,33 @@ class InMemoryCircuitBreaker(CircuitBreaker):
         if not permit.half_open_probe:
             return
         with self._lock:
-            record = self._records.setdefault(tool_ref, _CircuitRecord())
+            record = self._record(tool_ref)
             if permit.generation != record.generation:
                 return
             record.half_open_in_flight = max(0, record.half_open_in_flight - 1)
 
-    @staticmethod
-    def _open(record: _CircuitRecord, now_monotonic: float) -> None:
-        record.state = CircuitState.OPEN
+    def _record(self, tool_ref: ToolRef) -> _CircuitRecord:
+        record = self._records.get(tool_ref)
+        if record is None:
+            record = _CircuitRecord()
+            self._records[tool_ref] = record
+            if self._observer is not None:
+                with suppress(Exception):
+                    self._observer.record_circuit_created()
+        return record
+
+    def _transition(self, record: _CircuitRecord, current: CircuitState) -> None:
+        previous = record.state
+        record.state = current
+        self._notify_transition(previous, current)
+
+    def _notify_transition(self, previous: CircuitState, current: CircuitState) -> None:
+        if self._observer is not None and previous is not current:
+            with suppress(Exception):
+                self._observer.record_circuit_transition(previous, current)
+
+    def _open(self, record: _CircuitRecord, now_monotonic: float) -> None:
+        self._transition(record, CircuitState.OPEN)
         record.opened_monotonic = now_monotonic
         record.half_open_in_flight = 0
         record.generation += 1

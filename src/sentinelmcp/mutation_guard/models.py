@@ -130,6 +130,7 @@ class IdempotencyRecordState(StrEnum):
     """Durable mutation delivery states."""
 
     PENDING = "pending"
+    FAILED = "failed"
     SUCCEEDED = "succeeded"
     OUTCOME_UNKNOWN = "outcome_unknown"
 

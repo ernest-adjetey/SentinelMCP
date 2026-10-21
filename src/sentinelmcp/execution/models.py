@@ -158,6 +158,7 @@ class ExecutionErrorCode(StrEnum):
     RATE_LIMITED = "rate_limited"
     CIRCUIT_OPEN = "circuit_open"
     DEADLINE_EXCEEDED = "deadline_exceeded"
+    AUDIT_UNAVAILABLE = "audit_unavailable"
     BINDING_NOT_FOUND = "binding_not_found"
     ADAPTER_FAILURE = "adapter_failure"
     UPSTREAM_BAD_REQUEST = "upstream_bad_request"

@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext, suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast, final
 
+from sentinelmcp.audit import AuditEventKind, AuditRecorder, NoOpAuditRecorder
 from sentinelmcp.domain import (
     ArgumentValidationError,
     OperationClass,
@@ -53,6 +55,14 @@ from sentinelmcp.registry import (
     fingerprint_tool_definition,
     validate_tool_definition_schemas,
 )
+from sentinelmcp.telemetry import (
+    AuditFailurePhase,
+    ExecutionObservability,
+    ExecutionObservation,
+    ExecutionStage,
+    NoOpExecutionObservability,
+    ResilientExecutionObservability,
+)
 
 _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
     ExecutionErrorCode.INVALID_REQUEST: "The execution request is invalid.",
@@ -85,6 +95,7 @@ _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
     ExecutionErrorCode.RATE_LIMITED: "The caller has exhausted the local request rate limit.",
     ExecutionErrorCode.CIRCUIT_OPEN: "The tool dependency circuit is open.",
     ExecutionErrorCode.DEADLINE_EXCEEDED: "The request-wide execution deadline was exhausted.",
+    ExecutionErrorCode.AUDIT_UNAVAILABLE: "Required durable audit state is unavailable.",
     ExecutionErrorCode.BINDING_NOT_FOUND: "The exact tool version has no runtime binding.",
     ExecutionErrorCode.ADAPTER_FAILURE: "The tool adapter could not complete the invocation.",
     ExecutionErrorCode.UPSTREAM_BAD_REQUEST: "The upstream tool rejected the request.",
@@ -131,10 +142,12 @@ class ToolExecutor:
     """Execute one authorized tool request within its reliability policy."""
 
     __slots__ = (
+        "_audit",
         "_authorization_policy",
         "_bindings",
         "_execution_id_factory",
         "_monotonic",
+        "_observability",
         "_registry",
         "_reliability",
         "_request_id_factory",
@@ -152,6 +165,8 @@ class ToolExecutor:
         wall_clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         monotonic: Callable[[], float] = time.monotonic,
         reliability: ReliabilityControls | None = None,
+        audit: AuditRecorder | None = None,
+        observability: ExecutionObservability | None = None,
     ) -> None:
         self._registry = registry
         self._bindings = bindings
@@ -161,6 +176,11 @@ class ToolExecutor:
         self._monotonic = monotonic
         self._authorization_policy = authorization_policy
         self._reliability = ReliabilityControls() if reliability is None else reliability
+        self._audit = NoOpAuditRecorder() if audit is None else audit
+        configured_observability = (
+            NoOpExecutionObservability() if observability is None else observability
+        )
+        self._observability = ResilientExecutionObservability(configured_observability)
 
     async def execute(
         self,
@@ -170,21 +190,44 @@ class ToolExecutor:
     ) -> ExecutionResult:
         """Run one authorized read; mutations require the durable mutation service."""
 
-        prepared = self.prepare(request, principal=principal)
-        if isinstance(prepared, ExecutionFailure):
-            return prepared
-        if prepared.definition.operation_class is OperationClass.MUTATION:
-            return self._failure(prepared.context, ExecutionErrorCode.MUTATION_NOT_SUPPORTED)
-        binding = self.resolve_binding(prepared)
-        if isinstance(binding, ExecutionFailure):
-            return binding
-        return await self.dispatch(prepared, binding)
+        with self._observability.observe_execution(request.tool_ref) as observation:
+            prepared = self.prepare(request, principal=principal, observation=observation)
+            if isinstance(prepared, ExecutionFailure):
+                return self._complete_execution(observation, prepared, principal, None)
+            operation_class = prepared.definition.operation_class
+            if operation_class is OperationClass.MUTATION:
+                mutation_result = self._failure(
+                    prepared.context,
+                    ExecutionErrorCode.MUTATION_NOT_SUPPORTED,
+                )
+                return self._complete_execution(
+                    observation,
+                    mutation_result,
+                    principal,
+                    operation_class,
+                )
+            binding = self.resolve_binding(prepared, observation=observation)
+            if isinstance(binding, ExecutionFailure):
+                return self._complete_execution(
+                    observation,
+                    binding,
+                    principal,
+                    operation_class,
+                )
+            read_result = await self.dispatch(prepared, binding, observation=observation)
+            return self._complete_execution(
+                observation,
+                read_result,
+                principal,
+                operation_class,
+            )
 
     def prepare(
         self,
         request: ExecutionRequest,
         *,
         principal: Principal | None,
+        observation: ExecutionObservation | None = None,
     ) -> PreparedExecution | ExecutionFailure:
         """Resolve, validate, and authorize before any operational binding lookup."""
 
@@ -198,14 +241,15 @@ class ToolExecutor:
             started_monotonic=started_monotonic,
         )
 
-        try:
-            definition = self._registry.get(request.tool_ref)
-            fingerprint = fingerprint_tool_definition(definition)
-            validator = validate_tool_definition_schemas(definition)
-        except ToolNotFoundError:
-            return self._failure(context, ExecutionErrorCode.TOOL_NOT_FOUND)
-        except Exception:
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+        with _observe_stage(observation, ExecutionStage.REGISTRY_LOOKUP):
+            try:
+                definition = self._registry.get(request.tool_ref)
+                fingerprint = fingerprint_tool_definition(definition)
+                validator = validate_tool_definition_schemas(definition)
+            except ToolNotFoundError:
+                return self._failure(context, ExecutionErrorCode.TOOL_NOT_FOUND)
+            except Exception:
+                return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
 
         context = ExecutionContext(
             request_id=context.request_id,
@@ -216,41 +260,44 @@ class ToolExecutor:
             started_monotonic=context.started_monotonic,
         )
 
-        try:
-            validator.validate_arguments(request.arguments)
-        except ArgumentValidationError as error:
-            return self._failure(
-                context,
-                ExecutionErrorCode.INPUT_VALIDATION_FAILED,
-                issues=error.issues,
-            )
-        except Exception:
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+        with _observe_stage(observation, ExecutionStage.INPUT_VALIDATION):
+            try:
+                validator.validate_arguments(request.arguments)
+            except ArgumentValidationError as error:
+                return self._failure(
+                    context,
+                    ExecutionErrorCode.INPUT_VALIDATION_FAILED,
+                    issues=error.issues,
+                )
+            except Exception:
+                return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
 
-        if principal is None:
-            return self._failure(context, ExecutionErrorCode.AUTHENTICATION_FAILED)
-        try:
-            decision = self._authorization_policy.authorize(principal, definition)
-            if not isinstance(decision, AuthorizationDecision):
-                raise TypeError("authorization policy returned an invalid decision")
-        except Exception:
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
-        if not decision.allowed:
-            return self._failure(context, ExecutionErrorCode.AUTHORIZATION_FAILED)
+        with _observe_stage(observation, ExecutionStage.AUTHORIZATION):
+            if principal is None:
+                return self._failure(context, ExecutionErrorCode.AUTHENTICATION_FAILED)
+            try:
+                decision = self._authorization_policy.authorize(principal, definition)
+                if not isinstance(decision, AuthorizationDecision):
+                    raise TypeError("authorization policy returned an invalid decision")
+            except Exception:
+                return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+            if not decision.allowed:
+                return self._failure(context, ExecutionErrorCode.AUTHORIZATION_FAILED)
 
-        try:
-            admission = self._reliability.rate_limiter.acquire(
-                RateLimitKey.from_request(principal, definition.ref),
-                now_monotonic=self._monotonic(),
-            )
-        except Exception:
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
-        if not admission.allowed:
-            return self._failure(
-                context,
-                ExecutionErrorCode.RATE_LIMITED,
-                retry_after_ms=retry_after_ms(admission.retry_after_seconds),
-            )
+        with _observe_stage(observation, ExecutionStage.RATE_LIMIT):
+            try:
+                admission = self._reliability.rate_limiter.acquire(
+                    RateLimitKey.from_request(principal, definition.ref),
+                    now_monotonic=self._monotonic(),
+                )
+            except Exception:
+                return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+            if not admission.allowed:
+                return self._failure(
+                    context,
+                    ExecutionErrorCode.RATE_LIMITED,
+                    retry_after_ms=retry_after_ms(admission.retry_after_seconds),
+                )
 
         return PreparedExecution(
             request=request,
@@ -266,20 +313,25 @@ class ToolExecutor:
     def resolve_binding(
         self,
         prepared: PreparedExecution,
+        *,
+        observation: ExecutionObservation | None = None,
     ) -> RuntimeToolBinding | ExecutionFailure:
         """Resolve operational routing after all semantic admission checks."""
 
-        try:
-            return self._bindings.resolve(prepared.request.tool_ref)
-        except BindingNotFoundError:
-            return self._failure(prepared.context, ExecutionErrorCode.BINDING_NOT_FOUND)
-        except Exception:
-            return self._failure(prepared.context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+        with _observe_stage(observation, ExecutionStage.RUNTIME_BINDING):
+            try:
+                return self._bindings.resolve(prepared.request.tool_ref)
+            except BindingNotFoundError:
+                return self._failure(prepared.context, ExecutionErrorCode.BINDING_NOT_FOUND)
+            except Exception:
+                return self._failure(prepared.context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
 
     async def dispatch(
         self,
         prepared: PreparedExecution,
         binding: RuntimeToolBinding,
+        *,
+        observation: ExecutionObservation | None = None,
     ) -> ExecutionResult:
         """Invoke within one deadline, retrying only eligible read failures."""
 
@@ -319,12 +371,28 @@ class ToolExecutor:
                 if attempt_number == 1
                 else self._next_attempt_context(prepared.context)
             )
-            result = await self._dispatch_attempt(
-                prepared,
-                binding,
-                context=attempt_context,
-                timeout_seconds=remaining,
-            )
+            if observation is None:
+                result = await self._dispatch_attempt(
+                    prepared,
+                    binding,
+                    context=attempt_context,
+                    timeout_seconds=remaining,
+                )
+            else:
+                with observation.observe_attempt(
+                    attempt_context,
+                    attempt_number=attempt_number,
+                    operation_class=prepared.definition.operation_class,
+                ) as attempt_observation:
+                    result = await self._dispatch_attempt(
+                        prepared,
+                        binding,
+                        context=attempt_context,
+                        timeout_seconds=remaining,
+                        observation=observation,
+                    )
+                    with suppress(Exception):
+                        attempt_observation.finish(result)
             self._record_circuit_outcome(
                 prepared.request.tool_ref,
                 circuit.permit,
@@ -376,6 +444,7 @@ class ToolExecutor:
         *,
         context: ExecutionContext,
         timeout_seconds: float,
+        observation: ExecutionObservation | None = None,
     ) -> ExecutionResult:
         """Run one adapter attempt and normalize its contract outcome."""
 
@@ -405,19 +474,20 @@ class ToolExecutor:
                 context,
                 ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
             )
-        try:
-            prepared.validator.validate_output(adapter_result.output)
-        except OutputValidationError as error:
-            return self._failure(
-                context,
-                ExecutionErrorCode.OUTPUT_VALIDATION_FAILED,
-                issues=error.issues,
-            )
-        except Exception:
-            return self._failure(
-                context,
-                ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
-            )
+        with _observe_stage(observation, ExecutionStage.OUTPUT_VALIDATION):
+            try:
+                prepared.validator.validate_output(adapter_result.output)
+            except OutputValidationError as error:
+                return self._failure(
+                    context,
+                    ExecutionErrorCode.OUTPUT_VALIDATION_FAILED,
+                    issues=error.issues,
+                )
+            except Exception:
+                return self._failure(
+                    context,
+                    ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+                )
 
         return ExecutionSuccess(
             context=context,
@@ -463,6 +533,29 @@ class ToolExecutor:
             started_monotonic=context.started_monotonic,
         )
 
+    def _complete_execution(
+        self,
+        observation: ExecutionObservation,
+        result: ExecutionResult,
+        principal: Principal | None,
+        operation_class: OperationClass | None,
+    ) -> ExecutionResult:
+        with observation.observe_stage(ExecutionStage.AUDIT_RECORDING):
+            if principal is not None:
+                try:
+                    self._audit.record_result(
+                        kind=AuditEventKind.EXECUTION_COMPLETED,
+                        principal=principal,
+                        result=result,
+                        operation_class=operation_class,
+                        attempt_count=observation.attempt_count,
+                    )
+                except Exception:
+                    observation.record_audit_failure(AuditFailurePhase.READ_RESULT)
+        with suppress(Exception):
+            observation.finish(result, operation_class)
+        return result
+
     def _failure(
         self,
         context: ExecutionContext,
@@ -486,3 +579,10 @@ class ToolExecutor:
 
     def _duration_ms(self, started_monotonic: float) -> float:
         return max(0.0, (self._monotonic() - started_monotonic) * 1_000)
+
+
+def _observe_stage(
+    observation: ExecutionObservation | None,
+    stage: ExecutionStage,
+) -> AbstractContextManager[None]:
+    return nullcontext() if observation is None else observation.observe_stage(stage)

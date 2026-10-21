@@ -11,6 +11,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import Engine
 
+from sentinelmcp.audit import clear_audit_events
 from sentinelmcp.mutation_guard import clear_mutation_state
 from sentinelmcp.registry import PostgresToolRegistry, create_postgres_engine
 from sentinelmcp.registry.postgres import clear_tool_definitions
@@ -40,11 +41,13 @@ def postgres_database_url() -> str:
 def postgres_engine(postgres_database_url: str) -> Iterator[Engine]:
     command.upgrade(migration_config(postgres_database_url), "head")
     engine = create_postgres_engine(postgres_database_url)
+    clear_audit_events(engine)
     clear_mutation_state(engine)
     clear_tool_definitions(engine)
     try:
         yield engine
     finally:
+        clear_audit_events(engine)
         clear_mutation_state(engine)
         clear_tool_definitions(engine)
         engine.dispose()

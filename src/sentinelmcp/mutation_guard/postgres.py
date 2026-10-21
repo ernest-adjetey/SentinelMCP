@@ -101,7 +101,7 @@ mutation_idempotency = Table(
         name=IDEMPOTENCY_SCOPE_UNIQUE_CONSTRAINT,
     ),
     CheckConstraint(
-        "state IN ('pending', 'succeeded', 'outcome_unknown')",
+        "state IN ('pending', 'failed', 'succeeded', 'outcome_unknown')",
         name="ck_mutation_idempotency_state",
     ),
     CheckConstraint(

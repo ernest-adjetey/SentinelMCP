@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from sentinelmcp.application import MutationService, ToolExecutor
+from sentinelmcp.audit import AuditEventKind, AuditRecorder
 from sentinelmcp.domain import (
     OperationClass,
     RetryPolicy,
@@ -22,9 +23,11 @@ from sentinelmcp.execution import (
     AdapterInvocation,
     AdapterResult,
     AdapterSuccess,
+    ExecutionContext,
     ExecutionErrorCode,
     ExecutionFailure,
     ExecutionRequest,
+    ExecutionResult,
     ExecutionSuccess,
     InMemoryRuntimeBindingRegistry,
     RuntimeToolBinding,
@@ -107,6 +110,57 @@ class RecordingStore(MutationStateStore):
         self.completions.append((record_id, state, outcome))
 
 
+class SelectiveAuditFailure(AuditRecorder):
+    def __init__(
+        self,
+        *,
+        fail_intent: AuditEventKind | None = None,
+        fail_result: bool = False,
+    ) -> None:
+        self.fail_intent = fail_intent
+        self.fail_result = fail_result
+        self.intents: list[AuditEventKind] = []
+        self.results: list[AuditEventKind] = []
+
+    def record_preview(
+        self,
+        *,
+        principal: Principal,
+        context: ExecutionContext,
+    ) -> None:
+        del principal, context
+        self.intents.append(AuditEventKind.MUTATION_PREVIEWED)
+        if self.fail_intent is AuditEventKind.MUTATION_PREVIEWED:
+            raise RuntimeError("audit unavailable")
+
+    def record_intent(
+        self,
+        *,
+        kind: AuditEventKind,
+        principal: Principal,
+        context: ExecutionContext,
+        operation_class: OperationClass,
+    ) -> None:
+        del principal, context, operation_class
+        self.intents.append(kind)
+        if kind is self.fail_intent:
+            raise RuntimeError("audit unavailable")
+
+    def record_result(
+        self,
+        *,
+        kind: AuditEventKind,
+        principal: Principal,
+        result: ExecutionResult,
+        operation_class: OperationClass | None,
+        attempt_count: int,
+    ) -> None:
+        del principal, result, operation_class, attempt_count
+        self.results.append(kind)
+        if self.fail_result:
+            raise RuntimeError("audit unavailable")
+
+
 def definition(
     operation: OperationClass = OperationClass.MUTATION,
     *,
@@ -141,6 +195,7 @@ def services(
     operation: OperationClass = OperationClass.MUTATION,
     adapter_result: AdapterResult | None = None,
     retry_policy: RetryPolicy | None = None,
+    audit: AuditRecorder | None = None,
 ) -> tuple[MutationService, RecordingStore, RecordingAdapter, ToolDefinition]:
     tool = definition(operation, retry_policy=retry_policy)
     registry = InMemoryToolRegistry()
@@ -166,6 +221,7 @@ def services(
         store,
         wall_clock=lambda: NOW,
         token_factory=lambda: "t" * 43,
+        audit=audit,
     )
     return service, store, adapter, tool
 
@@ -182,6 +238,58 @@ def test_preview_persists_only_digest_and_never_resolves_or_dispatches() -> None
     assert len(store.challenges) == 1
     assert store.challenges[0].token_digest != result.confirmation_token.encode()
     assert adapter.calls == []
+
+
+def test_preview_audit_failure_never_returns_confirmation_secret() -> None:
+    audit = SelectiveAuditFailure(fail_intent=AuditEventKind.MUTATION_PREVIEWED)
+    service, store, adapter, tool = services(audit=audit)
+
+    result = service.preview(ExecutionRequest(tool.ref, {"name": "Ada"}), principal=PRINCIPAL)
+
+    assert isinstance(result, ExecutionFailure)
+    assert result.error.code is ExecutionErrorCode.AUDIT_UNAVAILABLE
+    assert audit.intents == [AuditEventKind.MUTATION_PREVIEWED]
+    assert len(store.challenges) == 1
+    assert adapter.calls == []
+
+
+def test_pre_dispatch_audit_failure_is_durable_and_never_invokes_adapter() -> None:
+    audit = SelectiveAuditFailure(fail_intent=AuditEventKind.MUTATION_DISPATCH_INTENT)
+    service, store, adapter, tool = services(audit=audit)
+
+    result = asyncio.run(
+        service.confirm(
+            ExecutionRequest(tool.ref, {"name": "Ada"}),
+            principal=PRINCIPAL,
+            confirmation_token="t" * 43,
+            idempotency_key="profile-update-audit-failure",
+        )
+    )
+
+    assert isinstance(result, ExecutionFailure)
+    assert result.error.code is ExecutionErrorCode.AUDIT_UNAVAILABLE
+    assert adapter.calls == []
+    assert store.completions[0][1] is IdempotencyRecordState.FAILED
+
+
+def test_post_dispatch_audit_failure_reports_and_persists_unknown_outcome() -> None:
+    audit = SelectiveAuditFailure(fail_result=True)
+    service, store, adapter, tool = services(audit=audit)
+
+    result = asyncio.run(
+        service.confirm(
+            ExecutionRequest(tool.ref, {"name": "Ada"}),
+            principal=PRINCIPAL,
+            confirmation_token="t" * 43,
+            idempotency_key="profile-update-audit-unknown",
+        )
+    )
+
+    assert isinstance(result, ExecutionFailure)
+    assert result.error.code is ExecutionErrorCode.MUTATION_OUTCOME_UNKNOWN
+    assert len(adapter.calls) == 1
+    assert audit.results == [AuditEventKind.MUTATION_EXECUTION_COMPLETED]
+    assert store.completions[0][1] is IdempotencyRecordState.OUTCOME_UNKNOWN
 
 
 def test_confirm_claims_dispatches_once_and_persists_success() -> None:

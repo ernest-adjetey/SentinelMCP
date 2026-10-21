@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict
 
 from sentinelmcp.application import MutationService, ToolExecutor
@@ -28,6 +28,7 @@ from sentinelmcp.execution import (
 )
 from sentinelmcp.mutation_guard import MutationPreview
 from sentinelmcp.policy import AuthenticationError, Authenticator, Principal
+from sentinelmcp.telemetry import GatewayObservability, GatewayRoute, PrometheusMetrics
 
 
 class ToolReferencePayload(BaseModel):
@@ -60,10 +61,14 @@ def create_execution_app(
     executor: ToolExecutor,
     authenticator: Authenticator,
     mutation_service: MutationService | None = None,
+    *,
+    gateway_observability: GatewayObservability | None = None,
+    metrics: PrometheusMetrics | None = None,
 ) -> FastAPI:
     """Create a gateway around an already-composed core executor."""
 
     app = FastAPI(title="SentinelMCP", version="0.1.0a0")
+    gateway = GatewayObservability() if gateway_observability is None else gateway_observability
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_handler(
@@ -85,88 +90,117 @@ def create_execution_app(
 
     @app.post("/v1/execute", response_model=None)
     async def execute_tool(payload: ExecutePayload, request: Request) -> JSONResponse:
-        principal = _authenticate_request(request, authenticator)
-        if isinstance(principal, JSONResponse):
-            return principal
+        with gateway.observe(GatewayRoute.EXECUTE) as observation:
+            with gateway.observe_authentication():
+                principal = _authenticate_request(request, authenticator)
+            if isinstance(principal, JSONResponse):
+                observation.finish(ExecutionErrorCode.AUTHENTICATION_FAILED)
+                return principal
 
-        try:
-            execution_request = _execution_request(payload)
-        except (InvalidToolReferenceError, InvalidExecutionRequestError):
-            return _gateway_error_response(
-                status_code=422,
-                code=ExecutionErrorCode.INVALID_REQUEST,
-                message="Tool reference or arguments are invalid.",
+            try:
+                execution_request = _execution_request(payload)
+            except (InvalidToolReferenceError, InvalidExecutionRequestError):
+                observation.finish(ExecutionErrorCode.INVALID_REQUEST)
+                return _gateway_error_response(
+                    status_code=422,
+                    code=ExecutionErrorCode.INVALID_REQUEST,
+                    message="Tool reference or arguments are invalid.",
+                )
+
+            result = await executor.execute(execution_request, principal=principal)
+            if isinstance(result, ExecutionSuccess):
+                observation.finish(None)
+                return JSONResponse(status_code=200, content=_success_content(result))
+            observation.finish(result.error.code)
+            return JSONResponse(
+                status_code=_http_status_for_failure(result),
+                content=_failure_content(result),
             )
-
-        result = await executor.execute(execution_request, principal=principal)
-        if isinstance(result, ExecutionSuccess):
-            return JSONResponse(status_code=200, content=_success_content(result))
-        return JSONResponse(
-            status_code=_http_status_for_failure(result),
-            content=_failure_content(result),
-        )
 
     @app.post("/v1/mutations/preview", response_model=None)
     async def preview_mutation(payload: ExecutePayload, request: Request) -> JSONResponse:
-        principal = _authenticate_request(request, authenticator)
-        if isinstance(principal, JSONResponse):
-            return principal
-        if mutation_service is None:
-            return _gateway_error_response(
-                status_code=503,
-                code=ExecutionErrorCode.MUTATION_NOT_SUPPORTED,
-                message="Durable mutation confirmation is not configured.",
+        with gateway.observe(GatewayRoute.MUTATION_PREVIEW) as observation:
+            with gateway.observe_authentication():
+                principal = _authenticate_request(request, authenticator)
+            if isinstance(principal, JSONResponse):
+                observation.finish(ExecutionErrorCode.AUTHENTICATION_FAILED)
+                return principal
+            if mutation_service is None:
+                observation.finish(ExecutionErrorCode.MUTATION_NOT_SUPPORTED)
+                return _gateway_error_response(
+                    status_code=503,
+                    code=ExecutionErrorCode.MUTATION_NOT_SUPPORTED,
+                    message="Durable mutation confirmation is not configured.",
+                )
+            try:
+                execution_request = _execution_request(payload)
+            except (InvalidToolReferenceError, InvalidExecutionRequestError):
+                observation.finish(ExecutionErrorCode.INVALID_REQUEST)
+                return _gateway_error_response(
+                    status_code=422,
+                    code=ExecutionErrorCode.INVALID_REQUEST,
+                    message="Tool reference or arguments are invalid.",
+                )
+            result = mutation_service.preview(execution_request, principal=principal)
+            if isinstance(result, MutationPreview):
+                observation.finish(None)
+                return JSONResponse(status_code=201, content=_preview_content(result))
+            observation.finish(result.error.code)
+            return JSONResponse(
+                status_code=_http_status_for_failure(result),
+                content=_failure_content(result),
             )
-        try:
-            execution_request = _execution_request(payload)
-        except (InvalidToolReferenceError, InvalidExecutionRequestError):
-            return _gateway_error_response(
-                status_code=422,
-                code=ExecutionErrorCode.INVALID_REQUEST,
-                message="Tool reference or arguments are invalid.",
-            )
-        result = mutation_service.preview(execution_request, principal=principal)
-        if isinstance(result, MutationPreview):
-            return JSONResponse(status_code=201, content=_preview_content(result))
-        return JSONResponse(
-            status_code=_http_status_for_failure(result),
-            content=_failure_content(result),
-        )
 
     @app.post("/v1/mutations/confirm", response_model=None)
     async def confirm_mutation(
         payload: ConfirmMutationPayload,
         request: Request,
     ) -> JSONResponse:
-        principal = _authenticate_request(request, authenticator)
-        if isinstance(principal, JSONResponse):
-            return principal
-        if mutation_service is None:
-            return _gateway_error_response(
-                status_code=503,
-                code=ExecutionErrorCode.MUTATION_NOT_SUPPORTED,
-                message="Durable mutation confirmation is not configured.",
+        with gateway.observe(GatewayRoute.MUTATION_CONFIRM) as observation:
+            with gateway.observe_authentication():
+                principal = _authenticate_request(request, authenticator)
+            if isinstance(principal, JSONResponse):
+                observation.finish(ExecutionErrorCode.AUTHENTICATION_FAILED)
+                return principal
+            if mutation_service is None:
+                observation.finish(ExecutionErrorCode.MUTATION_NOT_SUPPORTED)
+                return _gateway_error_response(
+                    status_code=503,
+                    code=ExecutionErrorCode.MUTATION_NOT_SUPPORTED,
+                    message="Durable mutation confirmation is not configured.",
+                )
+            try:
+                execution_request = _execution_request(payload)
+            except (InvalidToolReferenceError, InvalidExecutionRequestError):
+                observation.finish(ExecutionErrorCode.INVALID_REQUEST)
+                return _gateway_error_response(
+                    status_code=422,
+                    code=ExecutionErrorCode.INVALID_REQUEST,
+                    message="Tool reference or arguments are invalid.",
+                )
+            result = await mutation_service.confirm(
+                execution_request,
+                principal=principal,
+                confirmation_token=payload.confirmation_token,
+                idempotency_key=payload.idempotency_key,
             )
-        try:
-            execution_request = _execution_request(payload)
-        except (InvalidToolReferenceError, InvalidExecutionRequestError):
-            return _gateway_error_response(
-                status_code=422,
-                code=ExecutionErrorCode.INVALID_REQUEST,
-                message="Tool reference or arguments are invalid.",
+            if isinstance(result, ExecutionSuccess):
+                observation.finish(None)
+                return JSONResponse(status_code=200, content=_success_content(result))
+            observation.finish(result.error.code)
+            return JSONResponse(
+                status_code=_http_status_for_failure(result),
+                content=_failure_content(result),
             )
-        result = await mutation_service.confirm(
-            execution_request,
-            principal=principal,
-            confirmation_token=payload.confirmation_token,
-            idempotency_key=payload.idempotency_key,
-        )
-        if isinstance(result, ExecutionSuccess):
-            return JSONResponse(status_code=200, content=_success_content(result))
-        return JSONResponse(
-            status_code=_http_status_for_failure(result),
-            content=_failure_content(result),
-        )
+
+    if metrics is not None:
+
+        @app.get("/metrics", include_in_schema=False, response_model=None)
+        async def prometheus_metrics() -> Response:
+            return Response(
+                content=metrics.render(),
+                media_type="text/plain; version=0.0.4; charset=utf-8",
+            )
 
     return app
 
@@ -270,6 +304,7 @@ def _http_status_for_failure(result: ExecutionFailure) -> int:
     if code in {
         ExecutionErrorCode.BINDING_NOT_FOUND,
         ExecutionErrorCode.CIRCUIT_OPEN,
+        ExecutionErrorCode.AUDIT_UNAVAILABLE,
         ExecutionErrorCode.MUTATION_STATE_UNAVAILABLE,
         ExecutionErrorCode.UPSTREAM_RATE_LIMITED,
         ExecutionErrorCode.UPSTREAM_UNAVAILABLE,

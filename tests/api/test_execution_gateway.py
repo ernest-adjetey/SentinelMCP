@@ -10,6 +10,9 @@ from uuid import UUID
 import httpx
 import pytest
 from fastapi import FastAPI
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from sentinelmcp.adapters.rest import create_execution_app
 from sentinelmcp.adapters.rest.demo import app as demo_app
@@ -24,6 +27,7 @@ from sentinelmcp.execution import (
     RequestId,
 )
 from sentinelmcp.policy import Authenticator, Principal
+from sentinelmcp.telemetry import GatewayObservability, PrometheusMetrics
 
 TEST_PRINCIPAL = Principal(
     subject="gateway-test",
@@ -77,6 +81,18 @@ def post(
     return asyncio.run(send())
 
 
+def get(app: FastAPI, path: str) -> httpx.Response:
+    async def send() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://sentinelmcp.test",
+        ) as client:
+            return await client.get(path)
+
+    return asyncio.run(send())
+
+
 def test_gateway_executes_registered_synthetic_tool_end_to_end() -> None:
     runtime = create_demo_runtime()
 
@@ -91,6 +107,40 @@ def test_gateway_executes_registered_synthetic_tool_end_to_end() -> None:
     assert UUID(body["execution_id"]).version == 4
     assert body["request_id"] != body["execution_id"]
     assert body["duration_ms"] >= 0
+
+
+def test_gateway_exports_bounded_metrics_and_authentication_spans() -> None:
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    metrics = PrometheusMetrics()
+    gateway = GatewayObservability(
+        tracer=provider.get_tracer("sentinelmcp.gateway.tests"),
+        metrics=metrics,
+    )
+    runtime = create_demo_runtime()
+    app = create_execution_app(
+        runtime.executor,
+        TEST_AUTHENTICATOR,
+        gateway_observability=gateway,
+        metrics=metrics,
+    )
+
+    assert post(app, payload()).status_code == 200
+    assert post(app, payload(), authorization="").status_code == 401
+    exposition = get(app, "/metrics")
+
+    assert exposition.status_code == 200
+    assert 'outcome="success",route="execute"' in exposition.text
+    assert 'outcome="authentication_failed",route="execute"' in exposition.text
+    assert "valid-test-token" not in exposition.text
+    assert "gateway-test" not in exposition.text
+    spans = exporter.get_finished_spans()
+    assert [span.name for span in spans].count("sentinelmcp.gateway") == 2
+    assert [span.name for span in spans].count("sentinelmcp.authentication") == 2
+    rendered_attributes = repr(tuple(dict(span.attributes or {}) for span in spans))
+    assert "valid-test-token" not in rendered_attributes
+    assert "authorization" not in rendered_attributes.casefold()
 
 
 def test_gateway_maps_unknown_tool_invalid_input_and_missing_binding() -> None:

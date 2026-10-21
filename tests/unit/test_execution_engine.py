@@ -74,6 +74,17 @@ class BrokenRegistry:
         raise RuntimeError("private registry detail")
 
 
+class FailingAuditRecorder:
+    def record_preview(self, **_fields: object) -> None:
+        raise RuntimeError("audit unavailable")
+
+    def record_intent(self, **_fields: object) -> None:
+        raise RuntimeError("audit unavailable")
+
+    def record_result(self, **_fields: object) -> None:
+        raise RuntimeError("audit unavailable")
+
+
 def make_definition(
     *,
     version: str = "1.0.0",
@@ -166,6 +177,28 @@ def test_valid_execution_has_trusted_ids_fingerprint_and_monotonic_duration() ->
     assert result.context.started_at == datetime(2026, 1, 2, tzinfo=UTC)
     assert len(adapter.calls) == 1
     assert adapter.calls[0].arguments["value"] == "go"
+
+
+def test_read_audit_failure_preserves_successful_execution_result() -> None:
+    definition = make_definition()
+    adapter = RecordingAdapter({"value": "done"})
+    registry = InMemoryToolRegistry()
+    registry.register(definition)
+    bindings = InMemoryRuntimeBindingRegistry()
+    bindings.bind(RuntimeToolBinding(definition.ref, adapter))
+    executor = ToolExecutor(
+        registry,
+        bindings,
+        authorization_policy=allow_policy(definition),
+        audit=FailingAuditRecorder(),
+    )
+
+    result = run_execution(executor, ExecutionRequest(definition.ref, {"value": "go"}))
+
+    assert isinstance(result, ExecutionSuccess)
+    assert isinstance(result.result, FrozenJSONMapping)
+    assert result.result["value"] == "done"
+    assert len(adapter.calls) == 1
 
 
 def test_invalid_input_never_resolves_to_adapter_execution() -> None:
