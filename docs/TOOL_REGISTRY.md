@@ -2,10 +2,11 @@
 
 ## Status and scope
 
-Phase 2 implements immutable tool contracts, schema validation, and a process-local registry.
-It does not execute tools, resolve endpoints, load credentials, authorize callers, persist
-records, or negotiate compatible versions. Those boundaries remain explicit so a registry
-record cannot quietly become an execution or secret-storage mechanism.
+Phase 2 established immutable tool contracts and schema validation. Phase 4 adds durable
+PostgreSQL storage behind the same registry protocol. The registry still does not resolve
+endpoints, load credentials, authorize callers, or negotiate compatible versions. Those
+boundaries remain explicit so a registry record cannot quietly become an execution or
+secret-storage mechanism.
 
 ## Typed identifiers
 
@@ -118,7 +119,8 @@ evidence justifies it. Phase 2 provides none of those resource-isolation guarant
 ## Runtime validation
 
 Input and output validators are compiled during registration and cached by the in-memory
-registry. Runtime values must be finite JSON-compatible data with at most 100,000 nodes and 128
+registry. The executor compiles a validator from definitions reconstructed by PostgreSQL.
+Runtime values must be finite JSON-compatible data with at most 100,000 nodes and 128
 nesting levels. At most 32 schema failures plus one omission marker are returned.
 
 `ArgumentValidationError` and `OutputValidationError` contain the exact tool reference and a
@@ -143,7 +145,13 @@ latest lookups raise `ToolNotFoundError`; listing an unknown identity returns an
 `InMemoryToolRegistry` is protected by a reentrant lock. Expensive schema compilation and
 canonicalization happen before the short atomic check-and-insert section. The implementation
 is suitable for tests and local process use, not durability or coordination between replicas.
-A PostgreSQL adapter is deferred to Phase 4 and must pass the same registry contract tests.
+
+`PostgresToolRegistry` stores canonical bytes and fingerprints through an Alembic-managed
+schema. PostgreSQL uniqueness arbitrates races for one exact reference; identical content is
+idempotent and different content never overwrites the winner. Definitions are reconstructed,
+schema-validated, re-canonicalized, and fingerprint-checked on reads. Both implementations run
+the same contract suite. See [PostgreSQL persistence](PERSISTENCE.md) for transaction,
+migration, configuration, and failure details.
 
 ## Minimal example
 

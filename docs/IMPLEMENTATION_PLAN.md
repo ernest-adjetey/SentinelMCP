@@ -75,20 +75,28 @@ MCP, CLI execution, cancellation policy, request-wide deadlines, retries, circui
 authentication, authorization, mutation confirmation, persistence, and telemetry remain
 deferred to their owning phases.
 
-## Phase 4: PostgreSQL and Redis
+## Phase 4: Durable PostgreSQL tool registry
+
+**Status: Complete**
 
 **Deliverables**
 
-- SQLAlchemy async persistence, Alembic migrations, and asyncpg
-- PostgreSQL registry and audit repositories
-- Redis client lifecycle and namespaced key conventions
-- Docker Compose for local stateful dependencies with health checks
+- Synchronous SQLAlchemy Core and psycopg PostgreSQL registry behind `ToolRegistry`
+- Alembic-managed immutable definition schema with exact-reference uniqueness
+- Transactional idempotent/conflicting registration under cross-process races
+- Canonical reconstruction, fingerprint verification, and deterministic integrity errors
+- Docker Compose PostgreSQL 17 service with health check and environment configuration
+- GitHub Actions PostgreSQL service with migrations before the complete suite
 
 **Tests**
 
-- Migration up/down verification on disposable databases
-- Repository contract suites against in-memory and PostgreSQL implementations
-- Connection loss, pool exhaustion, and transaction rollback cases
+- Shared registry contract suite against in-memory and PostgreSQL implementations
+- Real 32-client identical race, conflicting race, independent versions, and completed readers
+- Migration up/down/up inspection, unavailable database, and corrupted row handling
+- Independent-engine restart persistence and PostgreSQL-backed gateway execution
+
+Redis, runtime-binding persistence, audit storage, authentication, authorization, mutation
+confirmation, and reliability controls remain deferred until their owning requirements exist.
 
 ## Phase 5: Authentication and authorization
 

@@ -14,6 +14,9 @@ covers maintenance activity, license, transitive footprint, security posture, an
 | pydantic | Runtime | Strict REST request-envelope models used directly by the adapter |
 | rfc8785 | Runtime | Correct JSON Canonicalization Scheme bytes without a custom number serializer |
 | semver | Runtime | Strict SemVer 2.0.0 parsing and precedence instead of permissive package versions |
+| SQLAlchemy | Runtime | Typed Core queries, explicit transactions, pooling, and PostgreSQL dialect support |
+| psycopg | Runtime | Supported PostgreSQL 3 driver with binary wheels for local and CI environments |
+| Alembic | Runtime tooling | Versioned, reviewable PostgreSQL schema upgrades and downgrades |
 | Hatchling | Build only | Minimal PEP 517 backend for the `src` package layout |
 | Hypothesis | Development | Generated invariant tests for canonicalization, registry state, and validation |
 | Pytest | Development | Test discovery, fixtures, parametrization, and future async/plugin ecosystem |
@@ -35,6 +38,9 @@ current quality run.
 | pydantic | MIT | Used only for strict public REST envelopes; semantic validation remains in domain/schema code. | Low to medium: replace request decoding at the edge. |
 | rfc8785 | Apache-2.0 | Pure Python with no runtime dependencies. It rejects non-I-JSON numbers instead of silently producing unstable bytes. | Medium: any replacement needs cross-implementation canonicalization vectors. |
 | semver | BSD-3-Clause | No mandatory runtime dependencies. It isolates precedence rules from package-manager version syntax. | Low to medium: a replacement must preserve exact parsing and prerelease ordering. |
+| SQLAlchemy | MIT | Core-only database abstraction; PostgreSQL-specific insertion remains isolated to `registry.postgres`. | Medium: replacement must preserve transaction ownership, pooling, and dialect behavior. |
+| psycopg | LGPL-3.0-only | PostgreSQL protocol driver; the `binary` extra supplies a prebuilt implementation for supported platforms. | Medium: another driver must preserve sync SQLAlchemy behavior and PostgreSQL error semantics. |
+| Alembic | MIT | Migration runner built on SQLAlchemy; used by operators, CI, and migration tests rather than request paths. | Medium: replacing it requires an equivalent ordered schema history and downgrade policy. |
 | Hypothesis | MPL-2.0 | Development only; its required dependency is `sortedcontainers`. Generated examples are not shipped. | Low: example tests remain, but property coverage would be lost. |
 | types-jsonschema | Apache-2.0 | Development only; contributes typing metadata and no runtime behavior. | Low: removal would require local protocols or targeted ignores. |
 
@@ -49,12 +55,20 @@ FastAPI and Pydantic are confined to the REST boundary. HTTPX is confined to the
 and API tests; the application executor imports none of them. Phase 3 tests exercise the exact
 installed versions through ASGI and mock transports with warnings treated as errors.
 
+### Phase 4 dependency choice
+
+Synchronous SQLAlchemy and psycopg match the established synchronous `ToolRegistry` protocol.
+Operations are short, engines are injected, and each method explicitly owns its connection or
+transaction. An async database stack would add a second registry shape or force async through
+the domain boundary before load measurements justify it. Alembic owns schema evolution;
+production paths never auto-create tables.
+
 ## Planned runtime dependencies
 
-Additional runtime packages are added only in the phase that uses them. Expected choices include FastAPI
-and Pydantic for the REST boundary, the official MCP SDK where it supports the required
-transport, SQLAlchemy and asyncpg for PostgreSQL, Redis's supported Python client, HTTPX for
-bounded async upstream calls, OpenTelemetry for traces, and prometheus-client for metrics.
+Additional runtime packages are added only in the phase that uses them. Expected future choices
+include the official MCP SDK where it supports the required transport, Redis's supported Python
+client if coordination requirements emerge, OpenTelemetry for traces, and prometheus-client
+for metrics.
 
 The dependency list in the project brief is a design constraint, not permission to install
 every package before code requires it.

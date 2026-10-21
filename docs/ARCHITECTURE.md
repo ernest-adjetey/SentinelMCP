@@ -128,9 +128,9 @@ schemas and computes canonical content before atomically checking the exact refe
 
 Definitions are immutable after registration. An exact reference can produce only one of
 three outcomes: a new insert, an explicit idempotent result for canonical-identical content,
-or `ImmutableToolVersionConflict` for different content. It is never overwritten. A future
-PostgreSQL adapter must satisfy the same protocol and enforce the exact-reference invariant
-with a unique constraint and transactional conflict handling.
+or `ImmutableToolVersionConflict` for different content. It is never overwritten. The Phase 4
+PostgreSQL adapter satisfies the same protocol and enforces the exact-reference invariant with
+a unique constraint and transactional conflict handling.
 
 Schema compilation and fingerprinting belong to `registry`; framework-independent identifier,
 policy, definition, and error types belong to `domain`. Endpoint routing is intentionally
@@ -221,17 +221,26 @@ closed. A confirmation is authorization evidence, not a substitute for current a
 
 ## 8. Persistence
 
+Phase 4 implements the durable tool-contract subset described in
+[PostgreSQL persistence](PERSISTENCE.md) and
+[ADR 0006](adr/0006-postgresql-durable-tool-contract-store.md). `PostgresToolRegistry` uses
+the same protocol as the in-memory registry; an exact-reference unique constraint and short
+`READ COMMITTED` transactions arbitrate concurrent registration. Canonical bytes and
+fingerprints are both retained and verified on reconstruction. Runtime bindings remain
+process-local.
+
 ### PostgreSQL: durable source of truth
 
-Planned durable records include tool versions, policy metadata, confirmation challenges,
-idempotency records, audit events, and replay metadata. Transactions and unique constraints
-provide correctness for confirmation consumption and idempotency claims.
+Tool versions are implemented as durable records. Policy metadata, confirmation challenges,
+idempotency records, audit events, and replay metadata remain planned for their owning phases.
+Production schema changes use Alembic rather than runtime table creation.
 
 ### Redis: coordination and acceleration
 
-Redis is planned for rate limiting, shared circuit-breaker state, bounded caches, and short
-leases. Durable safety evidence does not exist only in Redis. Degradation behavior is explicit:
-mutations fail closed when coordination state required for safety is unavailable.
+Redis is not present. It may later support rate limiting, shared circuit-breaker state, bounded
+caches, and short leases. Durable safety evidence does not exist only in Redis. Degradation
+behavior is explicit: mutations fail closed when coordination state required for safety is
+unavailable.
 
 ## 9. Execution semantics
 

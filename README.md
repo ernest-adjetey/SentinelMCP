@@ -6,10 +6,10 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 3 are complete. SentinelMCP can execute exact immutable
-> tool versions through synthetic or HTTP adapters and expose the lifecycle through FastAPI.
-> Authentication, mutation confirmation, reliability controls, and durable persistence are not
-> implemented yet; this is not production-ready software.
+> **Project status:** Phases 1 through 4 are complete. SentinelMCP can durably register exact
+> immutable tool versions in PostgreSQL, execute them through synthetic or HTTP adapters, and
+> expose the lifecycle through FastAPI. Authentication, authorization, mutation confirmation,
+> and reliability controls are not implemented yet; this is not production-ready software.
 
 ## Why this exists
 
@@ -57,6 +57,8 @@ See [Architecture](docs/ARCHITECTURE.md) and
 - Draft 2020-12 input/output schema checks with bounded complexity and no remote references
 - Structured runtime argument and output validation errors
 - Persistence-independent registry protocol and thread-safe in-memory implementation
+- Migration-managed PostgreSQL registry with transactional immutable registration
+- Real PostgreSQL concurrency, restart-persistence, migration, and corruption checks
 - Exact lookup, deterministic listing, SemVer ordering, and latest-version resolution
 - Idempotent identical registration and immutable conflict rejection
 - Immutable execution requests, contexts, structured successes, and structured failures
@@ -67,7 +69,8 @@ See [Architecture](docs/ARCHITECTURE.md) and
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
-[Execution lifecycle](docs/EXECUTION_LIFECYCLE.md).
+[Execution lifecycle](docs/EXECUTION_LIFECYCLE.md). Durable storage is documented in
+[PostgreSQL persistence](docs/PERSISTENCE.md).
 
 ## Planned capabilities
 
@@ -124,6 +127,17 @@ mypy
 pytest
 ```
 
+The complete suite needs PostgreSQL 17. Start the pinned local service, load the development
+test URL from `.env.example`, and apply migrations before `pytest`:
+
+```bash
+docker compose up -d postgres
+export SENTINELMCP_DATABASE_URL='postgresql+psycopg://sentinelmcp_test:sentinelmcp_dev_only@localhost:54329/sentinelmcp_test'
+export SENTINELMCP_TEST_DATABASE_URL="$SENTINELMCP_DATABASE_URL"
+python -m alembic upgrade head
+pytest
+```
+
 ## Implementation roadmap
 
 Work is intentionally incremental. Each phase has tests and exit criteria before the next
@@ -134,7 +148,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 1 | Architecture, repository structure, quality baseline | Complete |
 | 2 | Tool registry and schemas | Complete |
 | 3 | Gateway and execution orchestration | Complete |
-| 4 | PostgreSQL and Redis persistence | Planned |
+| 4 | Durable PostgreSQL tool registry | Complete |
 | 5 | Authentication and authorization | Planned |
 | 6 | Mutation confirmation and idempotency | Planned |
 | 7 | Retries, deadlines, circuit breakers, error normalization | Planned |
