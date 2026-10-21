@@ -109,6 +109,26 @@ class ImmutableToolVersionConflict(SentinelMCPError):
         )
 
 
+class RegistryUnavailableError(SentinelMCPError):
+    """Raised when durable registry storage cannot complete an operation."""
+
+    code = "registry_unavailable"
+
+    def __init__(self, *, operation: str) -> None:
+        self.operation = operation
+        super().__init__(f"Tool registry is unavailable during {operation}")
+
+
+class RegistryIntegrityError(SentinelMCPError):
+    """Raised when a persisted registry record violates storage invariants."""
+
+    code = "registry_integrity_error"
+
+    def __init__(self, *, reason: str) -> None:
+        self.reason = reason
+        super().__init__(f"Tool registry integrity check failed: {reason}")
+
+
 class _RuntimeValidationError(SentinelMCPError):
     """Shared structure for argument and output validation errors."""
 

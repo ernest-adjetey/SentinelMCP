@@ -25,12 +25,15 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
   "jsonschema>=4.23,<5",
+  "psycopg[binary]>=3.2,<4",
   "pydantic>=2.9,<3",
   "rfc8785>=0.1.4,<1",
   "semver>=3.0,<4",
+  "sqlalchemy>=2.0,<3",
 ]
 
 [project.optional-dependencies]
@@ -65,6 +68,9 @@ addopts = [
 ]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+  "postgres: requires a real PostgreSQL instance configured for tests",
+]
 
 [tool.coverage.run]
 branch = true
