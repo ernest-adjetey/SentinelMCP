@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from sentinelmcp.application import ToolExecutor
+from sentinelmcp.application import MutationService, ToolExecutor
 from sentinelmcp.domain import (
     InvalidToolReferenceError,
     ToolName,
@@ -26,7 +26,8 @@ from sentinelmcp.execution import (
     InvalidExecutionRequestError,
     RequestId,
 )
-from sentinelmcp.policy import AuthenticationError, Authenticator
+from sentinelmcp.mutation_guard import MutationPreview
+from sentinelmcp.policy import AuthenticationError, Authenticator, Principal
 
 
 class ToolReferencePayload(BaseModel):
@@ -48,7 +49,18 @@ class ExecutePayload(BaseModel):
     arguments: dict[str, Any]
 
 
-def create_execution_app(executor: ToolExecutor, authenticator: Authenticator) -> FastAPI:
+class ConfirmMutationPayload(ExecutePayload):
+    """A previewed mutation plus single-use confirmation and idempotency key."""
+
+    confirmation_token: str
+    idempotency_key: str
+
+
+def create_execution_app(
+    executor: ToolExecutor,
+    authenticator: Authenticator,
+    mutation_service: MutationService | None = None,
+) -> FastAPI:
     """Create a gateway around an already-composed core executor."""
 
     app = FastAPI(title="SentinelMCP", version="0.1.0a0")
@@ -73,34 +85,12 @@ def create_execution_app(executor: ToolExecutor, authenticator: Authenticator) -
 
     @app.post("/v1/execute", response_model=None)
     async def execute_tool(payload: ExecutePayload, request: Request) -> JSONResponse:
-        token = _bearer_token(request.headers.get("authorization"))
-        if token is None:
-            return _gateway_error_response(
-                status_code=401,
-                code=ExecutionErrorCode.AUTHENTICATION_FAILED,
-                message="A valid bearer token is required.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        try:
-            principal = authenticator.authenticate(token)
-        except AuthenticationError:
-            return _gateway_error_response(
-                status_code=401,
-                code=ExecutionErrorCode.AUTHENTICATION_FAILED,
-                message="A valid bearer token is required.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        principal = _authenticate_request(request, authenticator)
+        if isinstance(principal, JSONResponse):
+            return principal
 
         try:
-            tool_ref = ToolRef(
-                namespace=ToolNamespace(payload.tool.namespace),
-                name=ToolName(payload.tool.name),
-                version=ToolVersion(payload.tool.version),
-            )
-            execution_request = ExecutionRequest(
-                tool_ref=tool_ref,
-                arguments=payload.arguments,
-            )
+            execution_request = _execution_request(payload)
         except (InvalidToolReferenceError, InvalidExecutionRequestError):
             return _gateway_error_response(
                 status_code=422,
@@ -109,6 +99,68 @@ def create_execution_app(executor: ToolExecutor, authenticator: Authenticator) -
             )
 
         result = await executor.execute(execution_request, principal=principal)
+        if isinstance(result, ExecutionSuccess):
+            return JSONResponse(status_code=200, content=_success_content(result))
+        return JSONResponse(
+            status_code=_http_status_for_failure(result),
+            content=_failure_content(result),
+        )
+
+    @app.post("/v1/mutations/preview", response_model=None)
+    async def preview_mutation(payload: ExecutePayload, request: Request) -> JSONResponse:
+        principal = _authenticate_request(request, authenticator)
+        if isinstance(principal, JSONResponse):
+            return principal
+        if mutation_service is None:
+            return _gateway_error_response(
+                status_code=503,
+                code=ExecutionErrorCode.MUTATION_NOT_SUPPORTED,
+                message="Durable mutation confirmation is not configured.",
+            )
+        try:
+            execution_request = _execution_request(payload)
+        except (InvalidToolReferenceError, InvalidExecutionRequestError):
+            return _gateway_error_response(
+                status_code=422,
+                code=ExecutionErrorCode.INVALID_REQUEST,
+                message="Tool reference or arguments are invalid.",
+            )
+        result = mutation_service.preview(execution_request, principal=principal)
+        if isinstance(result, MutationPreview):
+            return JSONResponse(status_code=201, content=_preview_content(result))
+        return JSONResponse(
+            status_code=_http_status_for_failure(result),
+            content=_failure_content(result),
+        )
+
+    @app.post("/v1/mutations/confirm", response_model=None)
+    async def confirm_mutation(
+        payload: ConfirmMutationPayload,
+        request: Request,
+    ) -> JSONResponse:
+        principal = _authenticate_request(request, authenticator)
+        if isinstance(principal, JSONResponse):
+            return principal
+        if mutation_service is None:
+            return _gateway_error_response(
+                status_code=503,
+                code=ExecutionErrorCode.MUTATION_NOT_SUPPORTED,
+                message="Durable mutation confirmation is not configured.",
+            )
+        try:
+            execution_request = _execution_request(payload)
+        except (InvalidToolReferenceError, InvalidExecutionRequestError):
+            return _gateway_error_response(
+                status_code=422,
+                code=ExecutionErrorCode.INVALID_REQUEST,
+                message="Tool reference or arguments are invalid.",
+            )
+        result = await mutation_service.confirm(
+            execution_request,
+            principal=principal,
+            confirmation_token=payload.confirmation_token,
+            idempotency_key=payload.idempotency_key,
+        )
         if isinstance(result, ExecutionSuccess):
             return JSONResponse(status_code=200, content=_success_content(result))
         return JSONResponse(
@@ -127,6 +179,22 @@ def _success_content(result: ExecutionSuccess) -> dict[str, object]:
         "status": "success",
         "result": thaw_json(result.result),
         "duration_ms": round(result.duration_ms, 3),
+    }
+
+
+def _preview_content(preview: MutationPreview) -> dict[str, object]:
+    return {
+        "request_id": str(preview.request_id),
+        "tool": str(preview.tool_ref),
+        "status": "confirmation_required",
+        "preview": {
+            "arguments": thaw_json(preview.arguments),
+            "challenge_id": str(preview.challenge_id),
+            "confirmation_token": preview.confirmation_token,
+            "definition_fingerprint": preview.definition_fingerprint,
+            "expires_at": preview.expires_at.isoformat(),
+            "warnings": list(preview.warnings),
+        },
     }
 
 
@@ -190,7 +258,14 @@ def _http_status_for_failure(result: ExecutionFailure) -> int:
     if code is ExecutionErrorCode.MUTATION_NOT_SUPPORTED:
         return 409
     if code in {
+        ExecutionErrorCode.MUTATION_CONFIRMATION_INVALID,
+        ExecutionErrorCode.IDEMPOTENCY_CONFLICT,
+        ExecutionErrorCode.IDEMPOTENCY_IN_PROGRESS,
+    }:
+        return 409
+    if code in {
         ExecutionErrorCode.BINDING_NOT_FOUND,
+        ExecutionErrorCode.MUTATION_STATE_UNAVAILABLE,
         ExecutionErrorCode.UPSTREAM_RATE_LIMITED,
         ExecutionErrorCode.UPSTREAM_UNAVAILABLE,
     }:
@@ -200,6 +275,35 @@ def _http_status_for_failure(result: ExecutionFailure) -> int:
     if code is ExecutionErrorCode.INTERNAL_EXECUTION_ERROR:
         return 500
     return 502
+
+
+def _authenticate_request(
+    request: Request,
+    authenticator: Authenticator,
+) -> Principal | JSONResponse:
+    token = _bearer_token(request.headers.get("authorization"))
+    if token is not None:
+        try:
+            return authenticator.authenticate(token)
+        except AuthenticationError:
+            pass
+    return _gateway_error_response(
+        status_code=401,
+        code=ExecutionErrorCode.AUTHENTICATION_FAILED,
+        message="A valid bearer token is required.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _execution_request(payload: ExecutePayload) -> ExecutionRequest:
+    return ExecutionRequest(
+        tool_ref=ToolRef(
+            namespace=ToolNamespace(payload.tool.namespace),
+            name=ToolName(payload.tool.name),
+            version=ToolVersion(payload.tool.version),
+        ),
+        arguments=payload.arguments,
+    )
 
 
 def _bearer_token(authorization: str | None) -> str | None:

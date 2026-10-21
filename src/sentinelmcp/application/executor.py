@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast, final
 
@@ -11,6 +12,7 @@ from sentinelmcp.domain import (
     ArgumentValidationError,
     OperationClass,
     OutputValidationError,
+    ToolDefinition,
     ToolNotFoundError,
     ValidationIssue,
 )
@@ -30,9 +32,11 @@ from sentinelmcp.execution import (
     ExecutionSuccess,
     RequestId,
     RuntimeBindingResolver,
+    RuntimeToolBinding,
 )
 from sentinelmcp.policy import AuthorizationDecision, AuthorizationPolicy, Principal
 from sentinelmcp.registry import (
+    ToolContractValidator,
     ToolRegistry,
     fingerprint_tool_definition,
     validate_tool_definition_schemas,
@@ -50,6 +54,21 @@ _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
     ),
     ExecutionErrorCode.MUTATION_NOT_SUPPORTED: (
         "Mutation execution is unavailable until confirmation safeguards are implemented."
+    ),
+    ExecutionErrorCode.MUTATION_CONFIRMATION_INVALID: (
+        "Mutation confirmation is invalid, expired, consumed, or bound to another request."
+    ),
+    ExecutionErrorCode.IDEMPOTENCY_CONFLICT: (
+        "The idempotency key is already bound to a different mutation request."
+    ),
+    ExecutionErrorCode.IDEMPOTENCY_IN_PROGRESS: (
+        "The accepted mutation is still pending; retry the same semantic request later."
+    ),
+    ExecutionErrorCode.MUTATION_STATE_UNAVAILABLE: (
+        "Durable mutation safety state is unavailable; no mutation was dispatched."
+    ),
+    ExecutionErrorCode.MUTATION_OUTCOME_UNKNOWN: (
+        "The mutation may have reached the tool, but its durable outcome is unavailable."
     ),
     ExecutionErrorCode.BINDING_NOT_FOUND: "The exact tool version has no runtime binding.",
     ExecutionErrorCode.ADAPTER_FAILURE: "The tool adapter could not complete the invocation.",
@@ -79,6 +98,16 @@ _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
     ),
     ExecutionErrorCode.INTERNAL_EXECUTION_ERROR: ("SentinelMCP could not complete the execution."),
 }
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedExecution:
+    """Validated and authorized exact execution before operational binding."""
+
+    request: ExecutionRequest
+    context: ExecutionContext
+    definition: ToolDefinition
+    validator: ToolContractValidator
 
 
 @final
@@ -120,7 +149,25 @@ class ToolExecutor:
         *,
         principal: Principal | None = None,
     ) -> ExecutionResult:
-        """Run the Phase 3 lifecycle for one exact immutable tool version."""
+        """Run one authorized read; mutations require the durable mutation service."""
+
+        prepared = self.prepare(request, principal=principal)
+        if isinstance(prepared, ExecutionFailure):
+            return prepared
+        if prepared.definition.operation_class is OperationClass.MUTATION:
+            return self._failure(prepared.context, ExecutionErrorCode.MUTATION_NOT_SUPPORTED)
+        binding = self.resolve_binding(prepared)
+        if isinstance(binding, ExecutionFailure):
+            return binding
+        return await self.dispatch(prepared, binding)
+
+    def prepare(
+        self,
+        request: ExecutionRequest,
+        *,
+        principal: Principal | None,
+    ) -> PreparedExecution | ExecutionFailure:
+        """Resolve, validate, and authorize before any operational binding lookup."""
 
         started_monotonic = self._monotonic()
         context = ExecutionContext(
@@ -172,48 +219,74 @@ class ToolExecutor:
         if not decision.allowed:
             return self._failure(context, ExecutionErrorCode.AUTHORIZATION_FAILED)
 
-        if definition.operation_class is OperationClass.MUTATION:
-            return self._failure(context, ExecutionErrorCode.MUTATION_NOT_SUPPORTED)
+        return PreparedExecution(
+            request=request,
+            context=context,
+            definition=definition,
+            validator=validator,
+        )
+
+    def resolve_binding(
+        self,
+        prepared: PreparedExecution,
+    ) -> RuntimeToolBinding | ExecutionFailure:
+        """Resolve operational routing after all semantic admission checks."""
 
         try:
-            binding = self._bindings.resolve(request.tool_ref)
+            return self._bindings.resolve(prepared.request.tool_ref)
         except BindingNotFoundError:
-            return self._failure(context, ExecutionErrorCode.BINDING_NOT_FOUND)
+            return self._failure(prepared.context, ExecutionErrorCode.BINDING_NOT_FOUND)
         except Exception:
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+            return self._failure(prepared.context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+
+    async def dispatch(
+        self,
+        prepared: PreparedExecution,
+        binding: RuntimeToolBinding,
+    ) -> ExecutionResult:
+        """Invoke one already prepared and bound execution without retry."""
 
         invocation = AdapterInvocation(
-            context=context,
-            arguments=cast(FrozenJSONMapping, request.arguments),
+            context=prepared.context,
+            arguments=cast(FrozenJSONMapping, prepared.request.arguments),
         )
         try:
             adapter_result: object = await binding.adapter.execute(invocation)
         except Exception:
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+            return self._failure(
+                prepared.context,
+                ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+            )
 
         if isinstance(adapter_result, AdapterFailure):
             return self._failure(
-                context,
+                prepared.context,
                 adapter_result.code,
                 upstream_status=adapter_result.upstream_status,
             )
         if not isinstance(adapter_result, AdapterSuccess):
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+            return self._failure(
+                prepared.context,
+                ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+            )
         try:
-            validator.validate_output(adapter_result.output)
+            prepared.validator.validate_output(adapter_result.output)
         except OutputValidationError as error:
             return self._failure(
-                context,
+                prepared.context,
                 ExecutionErrorCode.OUTPUT_VALIDATION_FAILED,
                 issues=error.issues,
             )
         except Exception:
-            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+            return self._failure(
+                prepared.context,
+                ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+            )
 
         return ExecutionSuccess(
-            context=context,
+            context=prepared.context,
             result=adapter_result.output,
-            duration_ms=self._duration_ms(started_monotonic),
+            duration_ms=self._duration_ms(prepared.context.started_monotonic),
         )
 
     def _failure(
