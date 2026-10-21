@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from sentinelmcp.domain import (
     OutputValidationError,
     ToolDefinition,
     ToolNotFoundError,
+    ToolRef,
     ValidationIssue,
 )
 from sentinelmcp.domain.json_values import FrozenJSONMapping
@@ -34,6 +36,16 @@ from sentinelmcp.execution import (
     RuntimeBindingResolver,
     RuntimeToolBinding,
 )
+from sentinelmcp.execution.reliability import (
+    CircuitPermit,
+    Deadline,
+    RateLimitKey,
+    ReliabilityControls,
+    full_jitter_delay_seconds,
+    is_circuit_failure,
+    is_retryable_failure,
+    retry_after_ms,
+)
 from sentinelmcp.policy import AuthorizationDecision, AuthorizationPolicy, Principal
 from sentinelmcp.registry import (
     ToolContractValidator,
@@ -53,7 +65,7 @@ _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
         "The authenticated caller is not authorized for this tool operation."
     ),
     ExecutionErrorCode.MUTATION_NOT_SUPPORTED: (
-        "Mutation execution is unavailable until confirmation safeguards are implemented."
+        "Mutations require the durable preview and confirmation workflow."
     ),
     ExecutionErrorCode.MUTATION_CONFIRMATION_INVALID: (
         "Mutation confirmation is invalid, expired, consumed, or bound to another request."
@@ -70,6 +82,9 @@ _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
     ExecutionErrorCode.MUTATION_OUTCOME_UNKNOWN: (
         "The mutation may have reached the tool, but its durable outcome is unavailable."
     ),
+    ExecutionErrorCode.RATE_LIMITED: "The caller has exhausted the local request rate limit.",
+    ExecutionErrorCode.CIRCUIT_OPEN: "The tool dependency circuit is open.",
+    ExecutionErrorCode.DEADLINE_EXCEEDED: "The request-wide execution deadline was exhausted.",
     ExecutionErrorCode.BINDING_NOT_FOUND: "The exact tool version has no runtime binding.",
     ExecutionErrorCode.ADAPTER_FAILURE: "The tool adapter could not complete the invocation.",
     ExecutionErrorCode.UPSTREAM_BAD_REQUEST: "The upstream tool rejected the request.",
@@ -108,11 +123,12 @@ class PreparedExecution:
     context: ExecutionContext
     definition: ToolDefinition
     validator: ToolContractValidator
+    deadline: Deadline
 
 
 @final
 class ToolExecutor:
-    """Execute exactly one validated tool invocation without retries."""
+    """Execute one authorized tool request within its reliability policy."""
 
     __slots__ = (
         "_authorization_policy",
@@ -120,6 +136,7 @@ class ToolExecutor:
         "_execution_id_factory",
         "_monotonic",
         "_registry",
+        "_reliability",
         "_request_id_factory",
         "_wall_clock",
     )
@@ -134,6 +151,7 @@ class ToolExecutor:
         execution_id_factory: Callable[[], ExecutionId] = ExecutionId.generate,
         wall_clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         monotonic: Callable[[], float] = time.monotonic,
+        reliability: ReliabilityControls | None = None,
     ) -> None:
         self._registry = registry
         self._bindings = bindings
@@ -142,6 +160,7 @@ class ToolExecutor:
         self._wall_clock = wall_clock
         self._monotonic = monotonic
         self._authorization_policy = authorization_policy
+        self._reliability = ReliabilityControls() if reliability is None else reliability
 
     async def execute(
         self,
@@ -219,11 +238,29 @@ class ToolExecutor:
         if not decision.allowed:
             return self._failure(context, ExecutionErrorCode.AUTHORIZATION_FAILED)
 
+        try:
+            admission = self._reliability.rate_limiter.acquire(
+                RateLimitKey.from_request(principal, definition.ref),
+                now_monotonic=self._monotonic(),
+            )
+        except Exception:
+            return self._failure(context, ExecutionErrorCode.INTERNAL_EXECUTION_ERROR)
+        if not admission.allowed:
+            return self._failure(
+                context,
+                ExecutionErrorCode.RATE_LIMITED,
+                retry_after_ms=retry_after_ms(admission.retry_after_seconds),
+            )
+
         return PreparedExecution(
             request=request,
             context=context,
             definition=definition,
             validator=validator,
+            deadline=Deadline.from_timeout_ms(
+                started_monotonic=started_monotonic,
+                timeout_ms=definition.timeout_policy.timeout_ms,
+            ),
         )
 
     def resolve_binding(
@@ -244,49 +281,186 @@ class ToolExecutor:
         prepared: PreparedExecution,
         binding: RuntimeToolBinding,
     ) -> ExecutionResult:
-        """Invoke one already prepared and bound execution without retry."""
+        """Invoke within one deadline, retrying only eligible read failures."""
+
+        maximum_attempts = (
+            prepared.definition.retry_policy.max_attempts
+            if prepared.definition.operation_class is OperationClass.READ
+            else 1
+        )
+        attempt_number = 1
+        while True:
+            now = self._monotonic()
+            remaining = prepared.deadline.remaining_seconds(now)
+            if remaining <= 0:
+                return self._failure(
+                    prepared.context,
+                    ExecutionErrorCode.DEADLINE_EXCEEDED,
+                )
+            try:
+                circuit = self._reliability.circuit_breaker.acquire(
+                    prepared.request.tool_ref,
+                    now_monotonic=now,
+                )
+            except Exception:
+                return self._failure(
+                    prepared.context,
+                    ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+                )
+            if not circuit.allowed:
+                return self._failure(
+                    prepared.context,
+                    ExecutionErrorCode.CIRCUIT_OPEN,
+                    retry_after_ms=retry_after_ms(circuit.retry_after_seconds),
+                )
+            assert circuit.permit is not None
+            attempt_context = (
+                prepared.context
+                if attempt_number == 1
+                else self._next_attempt_context(prepared.context)
+            )
+            result = await self._dispatch_attempt(
+                prepared,
+                binding,
+                context=attempt_context,
+                timeout_seconds=remaining,
+            )
+            self._record_circuit_outcome(
+                prepared.request.tool_ref,
+                circuit.permit,
+                result,
+            )
+            if isinstance(result, ExecutionSuccess):
+                return result
+            if attempt_number >= maximum_attempts or not is_retryable_failure(result.error.code):
+                return result
+            now = self._monotonic()
+            try:
+                has_retry_budget = self._reliability.retry_budget.acquire(
+                    prepared.request.tool_ref,
+                    now_monotonic=now,
+                )
+            except Exception:
+                return result
+            if not has_retry_budget:
+                return result
+            try:
+                delay = full_jitter_delay_seconds(
+                    prepared.definition.retry_policy,
+                    retry_number=attempt_number,
+                    random_unit=self._reliability.random_unit(),
+                )
+            except (TypeError, ValueError):
+                return self._failure(
+                    result.context,
+                    ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+                )
+            if delay >= prepared.deadline.remaining_seconds(self._monotonic()):
+                return self._failure(
+                    result.context,
+                    ExecutionErrorCode.DEADLINE_EXCEEDED,
+                )
+            try:
+                await self._reliability.sleep(delay)
+            except Exception:
+                return self._failure(
+                    result.context,
+                    ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+                )
+            attempt_number += 1
+
+    async def _dispatch_attempt(
+        self,
+        prepared: PreparedExecution,
+        binding: RuntimeToolBinding,
+        *,
+        context: ExecutionContext,
+        timeout_seconds: float,
+    ) -> ExecutionResult:
+        """Run one adapter attempt and normalize its contract outcome."""
 
         invocation = AdapterInvocation(
-            context=prepared.context,
+            context=context,
             arguments=cast(FrozenJSONMapping, prepared.request.arguments),
         )
         try:
-            adapter_result: object = await binding.adapter.execute(invocation)
+            async with asyncio.timeout(timeout_seconds):
+                adapter_result: object = await binding.adapter.execute(invocation)
+        except TimeoutError:
+            return self._failure(context, ExecutionErrorCode.UPSTREAM_TIMEOUT)
         except Exception:
             return self._failure(
-                prepared.context,
+                context,
                 ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
             )
 
         if isinstance(adapter_result, AdapterFailure):
             return self._failure(
-                prepared.context,
+                context,
                 adapter_result.code,
                 upstream_status=adapter_result.upstream_status,
             )
         if not isinstance(adapter_result, AdapterSuccess):
             return self._failure(
-                prepared.context,
+                context,
                 ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
             )
         try:
             prepared.validator.validate_output(adapter_result.output)
         except OutputValidationError as error:
             return self._failure(
-                prepared.context,
+                context,
                 ExecutionErrorCode.OUTPUT_VALIDATION_FAILED,
                 issues=error.issues,
             )
         except Exception:
             return self._failure(
-                prepared.context,
+                context,
                 ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
             )
 
         return ExecutionSuccess(
-            context=prepared.context,
+            context=context,
             result=adapter_result.output,
             duration_ms=self._duration_ms(prepared.context.started_monotonic),
+        )
+
+    def _record_circuit_outcome(
+        self,
+        tool_ref: ToolRef,
+        permit: CircuitPermit,
+        result: ExecutionResult,
+    ) -> None:
+        try:
+            if isinstance(result, ExecutionSuccess):
+                self._reliability.circuit_breaker.record_success(
+                    tool_ref,
+                    permit,
+                    now_monotonic=self._monotonic(),
+                )
+            elif is_circuit_failure(result.error.code):
+                self._reliability.circuit_breaker.record_failure(
+                    tool_ref,
+                    permit,
+                    now_monotonic=self._monotonic(),
+                )
+            else:
+                self._reliability.circuit_breaker.record_neutral(
+                    tool_ref,
+                    permit,
+                    now_monotonic=self._monotonic(),
+                )
+        except Exception:
+            return
+
+    def _next_attempt_context(self, context: ExecutionContext) -> ExecutionContext:
+        return ExecutionContext(
+            request_id=context.request_id,
+            execution_id=self._execution_id_factory(),
+            tool_ref=context.tool_ref,
+            definition_fingerprint=context.definition_fingerprint,
+            started_at=context.started_at,
+            started_monotonic=context.started_monotonic,
         )
 
     def _failure(
@@ -295,6 +469,7 @@ class ToolExecutor:
         code: ExecutionErrorCode,
         *,
         upstream_status: int | None = None,
+        retry_after_ms: int | None = None,
         issues: tuple[ValidationIssue, ...] = (),
     ) -> ExecutionFailure:
         return ExecutionFailure(
@@ -303,6 +478,7 @@ class ToolExecutor:
                 code=code,
                 message=_SAFE_MESSAGES[code],
                 upstream_status=upstream_status,
+                retry_after_ms=retry_after_ms,
                 issues=issues,
             ),
             duration_ms=self._duration_ms(context.started_monotonic),

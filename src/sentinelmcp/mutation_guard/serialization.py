@@ -59,6 +59,7 @@ def serialize_execution_result(result: ExecutionResult) -> bytes:
                     for issue in result.error.issues
                 ],
                 "message": result.error.message,
+                "retry_after_ms": result.error.retry_after_ms,
                 "upstream_status": result.error.upstream_status,
             },
             "kind": "failure",
@@ -136,13 +137,20 @@ def _context(document: Mapping[str, object]) -> ExecutionContext:
 
 
 def _execution_error(document: Mapping[str, object]) -> ExecutionError:
-    if frozenset(document) != frozenset({"code", "issues", "message", "upstream_status"}):
+    fields = frozenset(document)
+    legacy_fields = frozenset({"code", "issues", "message", "upstream_status"})
+    if fields not in {legacy_fields, legacy_fields | {"retry_after_ms"}}:
         raise ValueError("outcome error fields are incomplete or unknown")
     upstream_status = document.get("upstream_status")
     if upstream_status is not None and (
         isinstance(upstream_status, bool) or not isinstance(upstream_status, int)
     ):
         raise ValueError("upstream status is invalid")
+    retry_after_ms = document.get("retry_after_ms")
+    if retry_after_ms is not None and (
+        isinstance(retry_after_ms, bool) or not isinstance(retry_after_ms, int)
+    ):
+        raise ValueError("retry guidance is invalid")
     raw_issues = document.get("issues")
     if not isinstance(raw_issues, list):
         raise ValueError("outcome issues must be an array")
@@ -150,6 +158,7 @@ def _execution_error(document: Mapping[str, object]) -> ExecutionError:
         code=ExecutionErrorCode(_string(document, "code")),
         message=_string(document, "message"),
         upstream_status=upstream_status,
+        retry_after_ms=retry_after_ms,
         issues=tuple(_issue(_mapping(value, field="issue")) for value in raw_issues),
     )
 

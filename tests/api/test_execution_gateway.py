@@ -166,21 +166,25 @@ def test_demo_gateway_module_exposes_runnable_fastapi_app() -> None:
 
 
 @pytest.mark.parametrize(
-    ("code", "expected_status", "upstream_status"),
+    ("code", "expected_status", "upstream_status", "retry_after_ms"),
     [
-        (ExecutionErrorCode.AUTHENTICATION_FAILED, 401, None),
-        (ExecutionErrorCode.AUTHORIZATION_FAILED, 403, None),
-        (ExecutionErrorCode.MUTATION_NOT_SUPPORTED, 409, None),
-        (ExecutionErrorCode.UPSTREAM_TIMEOUT, 504, None),
-        (ExecutionErrorCode.ADAPTER_FAILURE, 502, None),
-        (ExecutionErrorCode.UPSTREAM_AUTHENTICATION_FAILED, 502, 401),
-        (ExecutionErrorCode.INTERNAL_EXECUTION_ERROR, 500, None),
+        (ExecutionErrorCode.AUTHENTICATION_FAILED, 401, None, None),
+        (ExecutionErrorCode.AUTHORIZATION_FAILED, 403, None, None),
+        (ExecutionErrorCode.MUTATION_NOT_SUPPORTED, 409, None, None),
+        (ExecutionErrorCode.RATE_LIMITED, 429, None, 500),
+        (ExecutionErrorCode.CIRCUIT_OPEN, 503, None, 1_000),
+        (ExecutionErrorCode.DEADLINE_EXCEEDED, 504, None, None),
+        (ExecutionErrorCode.UPSTREAM_TIMEOUT, 504, None, None),
+        (ExecutionErrorCode.ADAPTER_FAILURE, 502, None, None),
+        (ExecutionErrorCode.UPSTREAM_AUTHENTICATION_FAILED, 502, 401, None),
+        (ExecutionErrorCode.INTERNAL_EXECUTION_ERROR, 500, None, None),
     ],
 )
 def test_gateway_maps_internal_categories_without_changing_error_code(
     code: ExecutionErrorCode,
     expected_status: int,
     upstream_status: int | None,
+    retry_after_ms: int | None,
 ) -> None:
     context = ExecutionContext(
         request_id=RequestId.generate(),
@@ -192,7 +196,12 @@ def test_gateway_maps_internal_categories_without_changing_error_code(
     )
     failure = ExecutionFailure(
         context,
-        ExecutionError(code, "Safe deterministic failure.", upstream_status=upstream_status),
+        ExecutionError(
+            code,
+            "Safe deterministic failure.",
+            upstream_status=upstream_status,
+            retry_after_ms=retry_after_ms,
+        ),
         1.0,
     )
 
@@ -215,3 +224,5 @@ def test_gateway_maps_internal_categories_without_changing_error_code(
     assert response.json()["error"]["code"] == code.value
     if upstream_status is not None:
         assert response.json()["error"]["upstream_status"] == upstream_status
+    if retry_after_ms is not None:
+        assert response.json()["error"]["retry_after_ms"] == retry_after_ms

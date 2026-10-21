@@ -143,7 +143,7 @@ def test_valid_execution_has_trusted_ids_fingerprint_and_monotonic_duration() ->
     registry.register(definition)
     bindings = InMemoryRuntimeBindingRegistry()
     bindings.bind(RuntimeToolBinding(definition.ref, adapter))
-    ticks = iter((10.0, 10.125))
+    ticks = iter((10.0, 10.0, 10.0, 10.125, 10.125))
     executor = ToolExecutor(
         registry,
         bindings,

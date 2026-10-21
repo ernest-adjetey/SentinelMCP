@@ -156,6 +156,12 @@ def test_execution_error_and_result_bounds_are_enforced() -> None:
     assert failure.error.issues == (issue,)
     with pytest.raises(ValueError, match="bounded"):
         ExecutionError(ExecutionErrorCode.ADAPTER_FAILURE, "")
+    with pytest.raises(ValueError, match="retry_after_ms"):
+        ExecutionError(
+            ExecutionErrorCode.RATE_LIMITED,
+            "Safe failure.",
+            retry_after_ms=-1,
+        )
     with pytest.raises(ValueError, match="HTTP status"):
         AdapterFailure(ExecutionErrorCode.UPSTREAM_UNAVAILABLE, upstream_status=700)
     with pytest.raises(TypeError, match="tuple"):

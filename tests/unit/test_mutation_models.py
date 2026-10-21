@@ -132,6 +132,7 @@ def test_success_and_failure_outcomes_round_trip_exact_context() -> None:
         ExecutionError(
             ExecutionErrorCode.OUTPUT_VALIDATION_FAILED,
             "The tool output does not satisfy the registered output schema.",
+            retry_after_ms=250,
             issues=(ValidationIssue(("value",), ("type",), "not a string", "type"),),
         ),
         15.0,
@@ -139,9 +140,14 @@ def test_success_and_failure_outcomes_round_trip_exact_context() -> None:
 
     restored_success = deserialize_execution_result(serialize_execution_result(success))
     restored_failure = deserialize_execution_result(serialize_execution_result(failure))
+    legacy_document = _valid_outcome_document(kind="failure")
+    cast(dict[str, object], legacy_document["error"]).pop("retry_after_ms")
+    restored_legacy_failure = deserialize_execution_result(_encoded(legacy_document))
 
     assert restored_success == success
     assert restored_failure == failure
+    assert isinstance(restored_legacy_failure, ExecutionFailure)
+    assert restored_legacy_failure.error.retry_after_ms is None
 
 
 @pytest.mark.parametrize("encoded", [b"not-json", b"[]", b'{"kind":"success"}'])
@@ -285,6 +291,7 @@ def _valid_outcome_document(*, kind: str = "success") -> dict[str, object]:
             "code": ExecutionErrorCode.UPSTREAM_UNAVAILABLE.value,
             "issues": [],
             "message": "The upstream tool is unavailable.",
+            "retry_after_ms": None,
             "upstream_status": 503,
         }
     else:
@@ -335,6 +342,10 @@ def test_malformed_durable_outcome_fields_fail_closed() -> None:
     bad_upstream_status = _valid_outcome_document(kind="failure")
     cast(dict[str, object], bad_upstream_status["error"])["upstream_status"] = True
     documents.append(bad_upstream_status)
+
+    bad_retry_guidance = _valid_outcome_document(kind="failure")
+    cast(dict[str, object], bad_retry_guidance["error"])["retry_after_ms"] = "soon"
+    documents.append(bad_retry_guidance)
 
     bad_issues = _valid_outcome_document(kind="failure")
     cast(dict[str, object], bad_issues["error"])["issues"] = "not-an-array"

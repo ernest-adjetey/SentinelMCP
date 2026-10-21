@@ -142,7 +142,7 @@ class ExecutionContext:
 
 
 class ExecutionErrorCode(StrEnum):
-    """Stable Phase 3 execution failure categories."""
+    """Stable execution failure categories shared by every transport."""
 
     INVALID_REQUEST = "invalid_request"
     AUTHENTICATION_FAILED = "authentication_failed"
@@ -155,6 +155,9 @@ class ExecutionErrorCode(StrEnum):
     IDEMPOTENCY_IN_PROGRESS = "idempotency_in_progress"
     MUTATION_STATE_UNAVAILABLE = "mutation_state_unavailable"
     MUTATION_OUTCOME_UNKNOWN = "mutation_outcome_unknown"
+    RATE_LIMITED = "rate_limited"
+    CIRCUIT_OPEN = "circuit_open"
+    DEADLINE_EXCEEDED = "deadline_exceeded"
     BINDING_NOT_FOUND = "binding_not_found"
     ADAPTER_FAILURE = "adapter_failure"
     UPSTREAM_BAD_REQUEST = "upstream_bad_request"
@@ -181,6 +184,7 @@ class ExecutionError:
     code: ExecutionErrorCode
     message: str
     upstream_status: int | None = None
+    retry_after_ms: int | None = None
     issues: tuple[ValidationIssue, ...] = ()
 
     def __post_init__(self) -> None:
@@ -196,6 +200,13 @@ class ExecutionError:
             or not 100 <= upstream_status <= 599
         ):
             raise ValueError("upstream_status must be a valid HTTP status")
+        retry_after_ms: object = self.retry_after_ms
+        if retry_after_ms is not None and (
+            isinstance(retry_after_ms, bool)
+            or not isinstance(retry_after_ms, int)
+            or not 0 <= retry_after_ms <= 300_000
+        ):
+            raise ValueError("retry_after_ms must be from 0 through 300,000")
         raw_issues: object = self.issues
         if not isinstance(raw_issues, tuple):
             raise TypeError("issues must be a tuple")

@@ -11,6 +11,7 @@ import pytest
 from sentinelmcp.application import MutationService, ToolExecutor
 from sentinelmcp.domain import (
     OperationClass,
+    RetryPolicy,
     ToolDefinition,
     ToolName,
     ToolNamespace,
@@ -106,7 +107,11 @@ class RecordingStore(MutationStateStore):
         self.completions.append((record_id, state, outcome))
 
 
-def definition(operation: OperationClass = OperationClass.MUTATION) -> ToolDefinition:
+def definition(
+    operation: OperationClass = OperationClass.MUTATION,
+    *,
+    retry_policy: RetryPolicy | None = None,
+) -> ToolDefinition:
     return ToolDefinition(
         namespace=ToolNamespace("demo.profile"),
         name=ToolName("update"),
@@ -125,6 +130,7 @@ def definition(operation: OperationClass = OperationClass.MUTATION) -> ToolDefin
             "additionalProperties": False,
         },
         operation_class=operation,
+        retry_policy=RetryPolicy() if retry_policy is None else retry_policy,
         idempotency_supported=True,
     )
 
@@ -134,8 +140,9 @@ def services(
     with_binding: bool = True,
     operation: OperationClass = OperationClass.MUTATION,
     adapter_result: AdapterResult | None = None,
+    retry_policy: RetryPolicy | None = None,
 ) -> tuple[MutationService, RecordingStore, RecordingAdapter, ToolDefinition]:
-    tool = definition(operation)
+    tool = definition(operation, retry_policy=retry_policy)
     registry = InMemoryToolRegistry()
     registry.register(tool)
     adapter = RecordingAdapter(adapter_result)
@@ -452,6 +459,27 @@ def test_adapter_failure_is_persisted_as_unknown_and_reused_without_redispatch()
 
     assert second == first
     assert len(adapter.calls) == 1
+
+
+def test_mutation_dispatch_never_retries_even_when_contract_declares_idempotency() -> None:
+    service, store, adapter, tool = services(
+        adapter_result=AdapterFailure(ExecutionErrorCode.UPSTREAM_UNAVAILABLE),
+        retry_policy=RetryPolicy(max_attempts=3),
+    )
+
+    result = asyncio.run(
+        service.confirm(
+            ExecutionRequest(tool.ref, {"name": "Ada"}),
+            principal=PRINCIPAL,
+            confirmation_token="t" * 43,
+            idempotency_key="profile-update-no-retry",
+        )
+    )
+
+    assert isinstance(result, ExecutionFailure)
+    assert result.error.code is ExecutionErrorCode.UPSTREAM_UNAVAILABLE
+    assert len(adapter.calls) == 1
+    assert store.completions[0][1] is IdempotencyRecordState.OUTCOME_UNKNOWN
 
 
 @pytest.mark.parametrize("outcome", [b"not-json", b""])

@@ -205,6 +205,8 @@ def _failure_content(result: ExecutionFailure) -> dict[str, object]:
     }
     if result.error.upstream_status is not None:
         error["upstream_status"] = result.error.upstream_status
+    if result.error.retry_after_ms is not None:
+        error["retry_after_ms"] = result.error.retry_after_ms
     if result.error.issues:
         error["issues"] = [
             {
@@ -255,6 +257,8 @@ def _http_status_for_failure(result: ExecutionFailure) -> int:
         return 404
     if code in {ExecutionErrorCode.INVALID_REQUEST, ExecutionErrorCode.INPUT_VALIDATION_FAILED}:
         return 422
+    if code is ExecutionErrorCode.RATE_LIMITED:
+        return 429
     if code is ExecutionErrorCode.MUTATION_NOT_SUPPORTED:
         return 409
     if code in {
@@ -265,12 +269,13 @@ def _http_status_for_failure(result: ExecutionFailure) -> int:
         return 409
     if code in {
         ExecutionErrorCode.BINDING_NOT_FOUND,
+        ExecutionErrorCode.CIRCUIT_OPEN,
         ExecutionErrorCode.MUTATION_STATE_UNAVAILABLE,
         ExecutionErrorCode.UPSTREAM_RATE_LIMITED,
         ExecutionErrorCode.UPSTREAM_UNAVAILABLE,
     }:
         return 503
-    if code is ExecutionErrorCode.UPSTREAM_TIMEOUT:
+    if code in {ExecutionErrorCode.DEADLINE_EXCEEDED, ExecutionErrorCode.UPSTREAM_TIMEOUT}:
         return 504
     if code is ExecutionErrorCode.INTERNAL_EXECUTION_ERROR:
         return 500
