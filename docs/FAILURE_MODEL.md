@@ -32,6 +32,25 @@ failures. The gateway must not convert every failure into HTTP 500 or leak raw u
 The public error envelope will include `code`, `message`, `request_id`, optional `retry_after`,
 and bounded structured details. Internal causes and stack traces remain in redacted telemetry.
 
+### Implemented registry errors
+
+Phase 2 exposes typed Python exceptions before a transport error envelope exists:
+
+| Exception | Stable code | Structured context |
+| --- | --- | --- |
+| `InvalidToolReferenceError` | `invalid_tool_reference` | Component, rejected value, reason |
+| `InvalidToolDefinitionError` | `invalid_tool_definition` | Field and bounded reason |
+| `InvalidSchemaError` | `invalid_schema` | Input/output kind and validation issues |
+| `ToolNotFoundError` | `tool_not_found` | Typed reference or identity |
+| `ImmutableToolVersionConflict` | `immutable_tool_version_conflict` | Exact ref and both fingerprints |
+| `ArgumentValidationError` | `argument_validation_failed` | Exact ref and bounded issues |
+| `OutputValidationError` | `output_validation_failed` | Exact ref and bounded issues |
+
+Each validation issue contains an instance path, schema path, generic message, and validator
+keyword. Messages do not include raw argument or output values. `ToolAlreadyExistsError` is
+available for adapters that need it, while the in-memory registry reports identical exact
+registration as the successful `already_registered` status.
+
 ## Upstream decoding order
 
 The executor processes a response in this order:

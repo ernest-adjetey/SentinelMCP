@@ -7,5 +7,5 @@
 - `concurrency/`: race conditions, leases, idempotency, and cancellation
 - `property/`: generated schema, canonicalization, and state-machine cases
 
-Only unit and architecture tests exist in Phase 1. Additional suites are added with the phase
-that introduces their behavior.
+Phase 2 includes unit, architecture, property, and process-local concurrent registration
+coverage. API and external-state integration suites remain empty until their owning phases.

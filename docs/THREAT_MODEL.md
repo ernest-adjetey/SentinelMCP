@@ -58,6 +58,19 @@ authorization signal.
 6. Fault injection cannot be enabled through the public production request path.
 7. Mutation safety fails closed when required durable or coordination state is unavailable.
 
+## Phase 2 implemented controls
+
+- Tool definitions contain no credential or secret fields and are detached from caller-owned
+  mutable containers before registration.
+- Input and output contracts use a fixed Draft 2020-12 validator. Relative and remote `$ref` and
+  `$dynamicRef` values are rejected before compilation, so validation performs no network I/O.
+- Document-local JSON Pointers and anchors are resolved at registration. Missing targets,
+  duplicate anchors, nested schema resources, and direct reference cycles are rejected.
+- Schema byte size, node count, and depth are bounded. Runtime JSON depth, node count, and
+  reported issue count are also bounded.
+- Exact versions cannot be overwritten. Canonical bytes are compared in addition to SHA-256
+  fingerprints, so registry correctness does not assume collision resistance alone.
+
 ## Threats and controls
 
 | Threat | Planned controls | Residual risk / validation |

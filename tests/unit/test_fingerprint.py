@@ -52,6 +52,12 @@ def test_fingerprint_is_sha256_of_rfc8785_canonical_content() -> None:
     assert canonical.startswith(b'{"capabilities"')
 
 
+def test_fingerprint_has_stable_cross_release_vector() -> None:
+    assert fingerprint_tool_definition(make_definition()) == (
+        "e8e96d54cd5dfb28da43da301d02b155918ed9b38e6eecce6feba2166b0c44aa"
+    )
+
+
 def test_fingerprint_ignores_object_key_and_capability_order() -> None:
     first = make_definition(
         input_schema={

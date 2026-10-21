@@ -6,9 +6,9 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phase 1 is complete: the architecture, package boundaries, threat model,
-> failure model, delivery plan, and baseline quality gates are defined. The runtime gateway is
-> not implemented yet. Features below are target capabilities unless marked complete.
+> **Project status:** Phases 1 and 2 are complete. Architecture boundaries and an immutable,
+> versioned in-memory tool registry are implemented with Draft 2020-12 schema validation. The
+> runtime gateway, network execution, and durable persistence are not implemented yet.
 
 ## Why this exists
 
@@ -48,9 +48,22 @@ control plane before scale requires service extraction.
 See [Architecture](docs/ARCHITECTURE.md) and
 [Design decisions](docs/DESIGN_DECISIONS.md) for the detailed request lifecycle and tradeoffs.
 
+## Implemented capabilities
+
+- Typed namespaces, names, exact SemVer versions, identities, and tool references
+- Deeply immutable tool definitions with read or mutation operation classes
+- RFC 8785 canonical definition bytes and deterministic SHA-256 fingerprints
+- Draft 2020-12 input/output schema checks with bounded complexity and no remote references
+- Structured runtime argument and output validation errors
+- Persistence-independent registry protocol and thread-safe in-memory implementation
+- Exact lookup, deterministic listing, SemVer ordering, and latest-version resolution
+- Idempotent identical registration and immutable conflict rejection
+
+The full behavioral contract and current limits are in
+[Tool registry and schemas](docs/TOOL_REGISTRY.md).
+
 ## Planned capabilities
 
-- Versioned tool registration and JSON Schema validation
 - MCP-compatible and REST entry points with a shared execution contract
 - Authentication, RBAC, operation classification, and policy decisions
 - Preview and single-use confirmation for sensitive mutations
@@ -96,7 +109,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Run the Phase 1 quality gates:
+Run the quality gates:
 
 ```bash
 ruff format --check .
@@ -113,7 +126,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | Architecture, repository structure, quality baseline | Complete |
-| 2 | Tool registry and schemas | Planned |
+| 2 | Tool registry and schemas | Complete |
 | 3 | Gateway and execution orchestration | Planned |
 | 4 | PostgreSQL and Redis persistence | Planned |
 | 5 | Authentication and authorization | Planned |

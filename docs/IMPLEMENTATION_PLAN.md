@@ -28,20 +28,27 @@ Each phase ends with:
 
 ## Phase 2: Tool registry and schemas
 
+**Status: Complete**
+
 **Deliverables**
 
-- Immutable `ToolDefinition` versions with operation class, argument/response schemas, endpoint,
-  timeout, retry, idempotency, sensitivity, and authorization metadata
-- In-memory repository for unit tests and a service interface for later persistence
-- JSON Schema subset validation with complexity limits
-- Registration, activation, deactivation, list, and describe use cases
+- Strict typed identifiers and full SemVer 2.0.0 parsing
+- Deeply immutable `ToolDefinition` values with operation class, input/output schemas, timeout,
+  retry, idempotency, and capability metadata
+- RFC 8785 canonicalization and deterministic SHA-256 definition fingerprints
+- Persistence-independent `ToolRegistry` protocol and thread-safe in-memory implementation
+- Draft 2020-12 schema and runtime value validation with complexity and reference limits
+- Exact registration, lookup, existence, list, version list, and latest use cases
 
 **Tests**
 
-- Schema validity and compatibility fixtures
-- Duplicate/version conflict behavior
-- Property tests for accepted and rejected arguments
-- Secret/sensitivity annotation validation
+- Schema validity, local reference, remote reference, and complexity fixtures
+- Idempotent duplicate, immutable conflict, version isolation, latest, and concurrent registration
+- Property tests for canonicalization, deep immutability, registration, and runtime validation
+
+Endpoint bindings, activation state, authorization metadata, sensitivity annotations, compatible
+version ranges, and durable persistence remain deferred. They require the security and storage
+semantics introduced in later phases.
 
 ## Phase 3: Gateway and execution orchestration
 

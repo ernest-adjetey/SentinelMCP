@@ -1,4 +1,6 @@
 # Property Tests
 
-Generated tests will target canonical JSON stability, schema validation, redaction, retry
-budgets, and state-machine invariants where example-based coverage is insufficient.
+Current generated tests cover canonical JSON stability, definition isolation from caller
+mutation, registration idempotency, immutable conflict handling, version isolation, and
+accepted/rejected runtime values. Later phases add redaction, retry-budget, and distributed
+state-machine properties.

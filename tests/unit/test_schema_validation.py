@@ -139,6 +139,25 @@ def test_local_json_pointer_and_anchor_references_are_supported() -> None:
         validator.validate_arguments({"asset_id": "", "limit": 0})
 
 
+def test_local_reference_to_boolean_subschema_is_supported() -> None:
+    validator = validate_tool_definition_schemas(
+        make_definition(input_schema={"$defs": {"anything": True}, "$ref": "#/$defs/anything"})
+    )
+
+    validator.validate_arguments({"any": ["json", 1]})
+
+
+def test_local_reference_target_must_be_a_schema() -> None:
+    with pytest.raises(InvalidSchemaError) as captured:
+        validate_tool_definition_schemas(
+            make_definition(input_schema={"description": "not a schema", "$ref": "#/description"})
+        )
+
+    assert captured.value.issues[0].message == (
+        "local reference target must be a schema object or boolean"
+    )
+
+
 @pytest.mark.parametrize("keyword", ["$ref", "$dynamicRef"])
 @pytest.mark.parametrize(
     "reference",

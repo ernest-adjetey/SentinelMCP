@@ -9,6 +9,7 @@ not rewritten.
 | [0001](adr/0001-modular-monolith.md) | Begin with a modular monolith | Accepted |
 | [0002](adr/0002-persisted-confirmations.md) | Persist opaque, single-use mutation confirmations | Accepted |
 | [0003](adr/0003-delivery-semantics.md) | Claim idempotent acceptance, not universal exactly-once effects | Accepted |
+| [0004](adr/0004-immutable-versioned-tool-contracts.md) | Make exact tool versions immutable and content-addressable | Accepted |
 
 ## Decision checklist
 

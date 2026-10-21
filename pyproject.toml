@@ -45,6 +45,9 @@ Documentation = "https://github.com/ernest-adjetey/SentinelMCP/tree/main/docs"
 Issues = "https://github.com/ernest-adjetey/SentinelMCP/issues"
 Repository = "https://github.com/ernest-adjetey/SentinelMCP"
 
+[tool.hatch.build]
+exclude = ["/.devtools", "/.hypothesis"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/sentinelmcp"]
 

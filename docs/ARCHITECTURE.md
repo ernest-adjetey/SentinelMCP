@@ -118,6 +118,24 @@ Dependency direction is inward: adapters depend on application services; applica
 coordinate domain-facing interfaces; infrastructure modules implement those interfaces. The
 domain layer never imports FastAPI, SQLAlchemy, Redis, or OpenTelemetry.
 
+### Phase 2 registry boundary
+
+The `ToolRegistry` protocol is independent of storage technology. It exposes registration,
+exact lookup, existence checks, deterministic identity/version lists, and latest-version
+resolution using domain objects rather than database rows or unvalidated strings. The current
+`InMemoryToolRegistry` protects registration and reads with a process-local lock. It validates
+schemas and computes canonical content before atomically checking the exact reference.
+
+Definitions are immutable after registration. An exact reference can produce only one of
+three outcomes: a new insert, an explicit idempotent result for canonical-identical content,
+or `ImmutableToolVersionConflict` for different content. It is never overwritten. A future
+PostgreSQL adapter must satisfy the same protocol and enforce the exact-reference invariant
+with a unique constraint and transactional conflict handling.
+
+Schema compilation and fingerprinting belong to `registry`; framework-independent identifier,
+policy, definition, and error types belong to `domain`. Endpoint routing is intentionally
+deferred until the execution boundary can enforce SSRF controls and credential separation.
+
 ## 5. Canonical request context
 
 Every accepted request receives or derives:

@@ -21,13 +21,7 @@ from sentinelmcp.domain.errors import (
     SchemaKind,
     ValidationIssue,
 )
-from sentinelmcp.domain.json_values import (
-    FrozenJSONMapping,
-    FrozenJSONValue,
-    JSONValueError,
-    freeze_json,
-    thaw_json,
-)
+from sentinelmcp.domain.json_values import FrozenJSONValue, JSONValueError, freeze_json, thaw_json
 from sentinelmcp.domain.tools import ToolDefinition, ToolRef
 
 DRAFT_2020_12_URI = "https://json-schema.org/draft/2020-12/schema"
@@ -243,6 +237,14 @@ def _verify_local_references(schema: dict[str, object], *, schema_kind: SchemaKi
                 validator=keyword,
                 cause=error,
             )
+        target = _resolve_path(schema, target_path)
+        if not isinstance(target, dict | bool):
+            _raise_policy_error(
+                schema_kind,
+                path=keyword_path,
+                message="local reference target must be a schema object or boolean",
+                validator=keyword,
+            )
         reference_edges.setdefault(source_path, set()).add(target_path)
         reference_paths[source_path] = keyword_path
     _reject_reference_cycles(
@@ -347,23 +349,24 @@ def _runtime_validation_issues(
     instance: object,
 ) -> tuple[ValidationIssue, ...]:
     try:
-        frozen = freeze_json(instance, max_depth=MAX_INSTANCE_DEPTH)
-    except JSONValueError:
-        return (
-            ValidationIssue(
-                instance_path=(),
-                schema_path=(),
-                message="Value must be bounded JSON data.",
-                validator="json",
-            ),
+        frozen = freeze_json(
+            instance,
+            max_depth=MAX_INSTANCE_DEPTH,
+            max_nodes=MAX_INSTANCE_NODES,
         )
-    if _count_nodes(frozen) > MAX_INSTANCE_NODES:
+    except JSONValueError as json_error:
+        validator_keyword = "maxNodes" if "node count" in json_error.reason else "json"
+        message = (
+            f"Value exceeds the {MAX_INSTANCE_NODES}-node limit."
+            if validator_keyword == "maxNodes"
+            else "Value must be bounded JSON data."
+        )
         return (
             ValidationIssue(
                 instance_path=(),
                 schema_path=(),
-                message=f"Value exceeds the {MAX_INSTANCE_NODES}-node limit.",
-                validator="maxNodes",
+                message=message,
+                validator=validator_keyword,
             ),
         )
 
@@ -397,21 +400,6 @@ def _runtime_validation_issues(
             )
         )
     return tuple(issues)
-
-
-def _count_nodes(value: FrozenJSONValue) -> int:
-    count = 0
-    stack = [value]
-    while stack:
-        current = stack.pop()
-        count += 1
-        if count > MAX_INSTANCE_NODES:
-            return count
-        if isinstance(current, FrozenJSONMapping):
-            stack.extend(current.values())
-        elif isinstance(current, tuple):
-            stack.extend(current)
-    return count
 
 
 def _issue_from_schema_error(error: SchemaError) -> ValidationIssue:

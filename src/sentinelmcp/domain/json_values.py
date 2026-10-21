@@ -49,13 +49,31 @@ class JSONValueError(ValueError):
         super().__init__(f"{path}: {reason}")
 
 
-def freeze_json(value: object, *, max_depth: int = 128) -> FrozenJSONValue:
+def freeze_json(
+    value: object,
+    *,
+    max_depth: int = 128,
+    max_nodes: int = 100_000,
+) -> FrozenJSONValue:
     """Validate, copy, and recursively freeze a JSON-compatible value."""
 
-    return _freeze_json(value, path="$", depth=0, max_depth=max_depth, active_ids=set())
+    return _freeze_json(
+        value,
+        path="$",
+        depth=0,
+        max_depth=max_depth,
+        max_nodes=max_nodes,
+        node_count=[0],
+        active_ids=set(),
+    )
 
 
-def freeze_json_mapping(value: Mapping[str, object], *, max_depth: int = 128) -> FrozenJSONMapping:
+def freeze_json_mapping(
+    value: Mapping[str, object],
+    *,
+    max_depth: int = 128,
+    max_nodes: int = 100_000,
+) -> FrozenJSONMapping:
     """Freeze a JSON object and preserve its mapping type in the return contract."""
 
     return _freeze_mapping(
@@ -63,6 +81,8 @@ def freeze_json_mapping(value: Mapping[str, object], *, max_depth: int = 128) ->
         path="$",
         depth=0,
         max_depth=max_depth,
+        max_nodes=max_nodes,
+        node_count=[0],
         active_ids=set(),
     )
 
@@ -83,8 +103,13 @@ def _freeze_json(
     path: str,
     depth: int,
     max_depth: int,
+    max_nodes: int,
+    node_count: list[int],
     active_ids: set[int],
 ) -> FrozenJSONValue:
+    node_count[0] += 1
+    if node_count[0] > max_nodes:
+        raise JSONValueError(path=path, reason=f"node count exceeds maximum {max_nodes}")
     if depth > max_depth:
         raise JSONValueError(path=path, reason=f"nesting exceeds maximum depth {max_depth}")
     if value is None or isinstance(value, str | bool | int):
@@ -99,6 +124,8 @@ def _freeze_json(
             path=path,
             depth=depth,
             max_depth=max_depth,
+            max_nodes=max_nodes,
+            node_count=node_count,
             active_ids=active_ids,
         )
     if isinstance(value, list | tuple):
@@ -111,6 +138,8 @@ def _freeze_json(
                     path=f"{path}[{index}]",
                     depth=depth + 1,
                     max_depth=max_depth,
+                    max_nodes=max_nodes,
+                    node_count=node_count,
                     active_ids=active_ids,
                 )
                 for index, item in enumerate(value)
@@ -126,6 +155,8 @@ def _freeze_mapping(
     path: str,
     depth: int,
     max_depth: int,
+    max_nodes: int,
+    node_count: list[int],
     active_ids: set[int],
 ) -> FrozenJSONMapping:
     marker = id(value)
@@ -140,6 +171,8 @@ def _freeze_mapping(
                 path=f"{path}.{key}",
                 depth=depth + 1,
                 max_depth=max_depth,
+                max_nodes=max_nodes,
+                node_count=node_count,
                 active_ids=active_ids,
             )
         return FrozenJSONMapping(frozen)

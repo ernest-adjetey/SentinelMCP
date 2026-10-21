@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from sentinelmcp.domain import (
@@ -134,8 +134,7 @@ def test_registered_versions_remain_isolated(
 def test_conflicting_content_never_overwrites(
     first_description: str, second_description: str
 ) -> None:
-    if first_description == second_description:
-        return
+    assume(first_description != second_description)
     registry = InMemoryToolRegistry()
     original = make_definition(description=first_description)
     conflicting = make_definition(description=second_description)

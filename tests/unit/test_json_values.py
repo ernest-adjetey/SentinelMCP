@@ -53,6 +53,13 @@ def test_freeze_json_rejects_excessive_nesting() -> None:
         freeze_json([[[0]]], max_depth=1)
 
 
+def test_freeze_json_stops_at_node_limit_during_copy() -> None:
+    with pytest.raises(JSONValueError, match="node count") as captured:
+        freeze_json([1, 2], max_nodes=2)
+
+    assert captured.value.path == "$[1]"
+
+
 def test_freeze_json_rejects_non_string_object_keys() -> None:
     invalid = cast(Mapping[str, object], {1: "value"})
 
