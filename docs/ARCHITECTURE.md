@@ -224,9 +224,9 @@ Mutation preview and execution are separate commands.
 1. Resolve an immutable tool version and validate arguments.
 2. Authorize the actor for both the tool and the mutation class.
 3. Canonicalize the validated arguments and compute a request digest.
-4. Produce a human-readable preview with warnings and affected synthetic resources.
-5. Persist a random, single-use confirmation challenge as a hash, bound to actor, agent, tool
-   version, argument digest, policy version, and expiry.
+4. Produce a preview containing the exact normalized arguments and a mutation warning.
+5. Persist a random, single-use confirmation challenge as a hash, bound to principal issuer
+   and subject, exact tool version, definition fingerprint, argument digest, and expiry.
 6. Return the opaque confirmation token. No mutation has executed.
 7. On confirmation, re-run validation and authorization against the same immutable tool
    version and atomically consume the challenge.
@@ -248,9 +248,9 @@ process-local.
 
 ### PostgreSQL: durable source of truth
 
-Tool versions are implemented as durable records. Policy metadata, confirmation challenges,
-idempotency records, audit events, and replay metadata remain planned for their owning phases.
-Production schema changes use Alembic rather than runtime table creation.
+Tool versions, confirmation challenges, and idempotency records are implemented as durable
+records. Policy metadata, audit events, and replay metadata remain planned for their owning
+phases. Production schema changes use Alembic rather than runtime table creation.
 
 ### Redis: coordination and acceleration
 

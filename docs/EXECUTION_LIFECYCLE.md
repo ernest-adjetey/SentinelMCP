@@ -2,14 +2,15 @@
 
 ## Status and scope
 
-Phases 3 through 5 implement one real execution path from a signed-JWT-authenticated FastAPI
+Phases 3 through 6 implement one real execution path from a signed-JWT-authenticated FastAPI
 request to an exact immutable tool contract, authorization decision, runtime binding, adapter
 invocation, output validation, and stable response. The contract registry can be in memory or
-PostgreSQL. Mutation confirmation, retries, circuit breaking, telemetry, replay, and
-benchmarks are not implemented yet.
+PostgreSQL. Mutations use separate durable preview and confirmation endpoints backed by
+PostgreSQL. Retries, circuit breaking, telemetry, replay, and benchmarks are not implemented.
 
-The public demo registers only read tools. A registered mutation is rejected before binding
-resolution with `mutation_not_supported` until the confirmation and idempotency phase exists.
+The public demo registers only read tools. A registered mutation is rejected by ordinary
+`ToolExecutor.execute` with `mutation_not_supported`; supported mutation callers must use
+`MutationService` so the executor cannot bypass confirmation and idempotency safeguards.
 
 ## Identities
 
@@ -72,6 +73,19 @@ runtime binding resolution, or adapter invocation. Policy is evaluated before mu
 handling and bindings. Unknown exact versions, invalid input, unauthenticated or unauthorized
 callers, unbound tools, and mutations therefore perform no tool work.
 
+## Mutation lifecycle
+
+`POST /v1/mutations/preview` and `POST /v1/mutations/confirm` share the executor's exact lookup,
+schema validation, and authorization stages. Preview persists a hashed challenge and returns
+the raw token without resolving a runtime binding. Confirm re-runs current authorization,
+resolves the binding, and atomically consumes the challenge while claiming a durable
+idempotency record before one adapter dispatch.
+
+The challenge binds verified principal issuer/subject, exact tool reference, definition
+fingerprint, canonical argument digest, and expiry. Same-key duplicates with the same semantic
+request recover a pending or terminal record; a different semantic request conflicts. See
+[Mutation safety](MUTATION_SAFETY.md) for transactions, races, and crash semantics.
+
 ## Contract identity and runtime binding
 
 An immutable `ToolDefinition` answers: "What inputs, outputs, and operation semantics does this
@@ -124,7 +138,8 @@ optional upstream status, and optional schema issues. Implemented categories are
 
 - request, security, and routing: `invalid_request`, `authentication_failed`, `tool_not_found`,
   `input_validation_failed`, `authorization_failed`, `mutation_not_supported`,
-  `binding_not_found`;
+  `mutation_confirmation_invalid`, `idempotency_conflict`, `idempotency_in_progress`,
+  `mutation_state_unavailable`, `mutation_outcome_unknown`, `binding_not_found`;
 - adapter and status: `adapter_failure`, `upstream_bad_request`,
   `upstream_authentication_failed`, `upstream_authorization_failed`, `upstream_not_found`,
   `upstream_conflict`, `upstream_rate_limited`, `upstream_status_error`,
@@ -170,8 +185,8 @@ All definitions use the real immutable registry, schemas, bindings, executor, an
 - There is no endpoint allowlist, DNS/IP policy, credential injection, or redirect policy beyond
   refusing redirects. The HTTP adapter is not production-safe for untrusted target configuration.
 - There is no token issuance, remote key discovery, revocation, persisted policy, delegated
-  agent identity, rate limiting, mutation confirmation, idempotent execution, distributed
-  binding coordination, audit, telemetry, or replay. Contract persistence is implemented, but
-  runtime bindings remain process-local.
+  agent identity, rate limiting, distributed binding coordination, audit, telemetry, or replay.
+  Mutation safety is durable, but downstream idempotency propagation and automated
+  reconciliation are not implemented. Runtime bindings remain process-local.
 - There is no MCP transport adapter or CLI execution command yet. Both can call the same core
   executor once their boundary contracts are implemented.

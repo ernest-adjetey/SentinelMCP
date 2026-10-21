@@ -11,10 +11,11 @@ status query. Exactly-once execution cannot be guaranteed across arbitrary HTTP 
 
 ## Decision
 
-SentinelMCP guarantees one accepted mutation record per idempotency scope and argument digest.
-It forwards the idempotency key only to tools whose contract declares support. Ambiguous
-upstream outcomes are recorded as `OUTCOME_UNKNOWN`; they are not automatically retried unless
-the target contract makes the retry safe.
+SentinelMCP guarantees one accepted mutation record per local idempotency scope and semantic
+request digest. It dispatches a winning Phase 6 claim once and never automatically redrives a
+`pending` or `outcome_unknown` record. Downstream idempotency-key propagation and mutation
+retries are not implemented yet; a later reliability phase may add them only for adapters and
+targets with an explicit safe contract.
 
 ## Alternatives considered
 
@@ -28,3 +29,5 @@ the target contract makes the retry safe.
 - Idempotency records need a request digest to reject key reuse with different arguments.
 - Operators need an explicit reconciliation path for ambiguous outcomes.
 - Tests must cover concurrent duplicates and lost-response scenarios.
+- A crash before dispatch and a crash after an external effect but before terminal persistence
+  can both leave `pending`; local state alone cannot distinguish them.

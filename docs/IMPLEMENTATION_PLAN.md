@@ -124,6 +124,8 @@ or owning feature requires them.
 
 ## Phase 6: Mutation preview, confirmation, and idempotency
 
+**Status: Complete**
+
 **Deliverables**
 
 - Canonical request digest and test vectors

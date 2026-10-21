@@ -50,8 +50,9 @@ authorization signal.
 
 These are target invariants for the first production-capable release, not a claim that every
 control is implemented. Phase 5 implements signed-JWT authentication and default-deny
-authorization for execution. Mutation, audit, outbound-target, and rate-limit controls remain
-incomplete, so the project is not production-safe.
+authorization for execution, and Phase 6 implements durable mutation confirmation and local
+idempotency arbitration. Audit, outbound-target, and rate-limit controls remain incomplete, so
+the project is not production-safe.
 
 1. No tool executes before authentication, schema validation, and authorization succeed.
 2. A sensitive mutation executes only after a matching, unexpired, single-use confirmation is
@@ -80,7 +81,7 @@ incomplete, so the project is not production-safe.
 
 - Gateway requests select one exact version; the executor never substitutes `latest`.
 - Arguments are detached and schema-validated before binding resolution or adapter dispatch.
-- Mutations fail closed until confirmation and idempotency safeguards are implemented.
+- Ordinary executor calls reject mutations so no unguarded local path reaches an adapter.
 - Runtime targets are separate from immutable contracts. HTTP target URLs reject embedded
   credentials and fragments, and redirects are not followed.
 - Non-success HTTP status is classified before content-type or JSON parsing. Successful bodies
@@ -112,6 +113,25 @@ trusted until those controls exist.
 Verification keys and policies are currently trusted process configuration. Token issuance,
 key distribution, revocation, policy administration, delegated-agent identity, and tenant
 isolation are not implemented. See [Security model](SECURITY_MODEL.md).
+
+## Phase 6 implemented controls
+
+- Raw confirmation secrets are generated with operating-system randomness and only SHA-256
+  digests are persisted.
+- Challenges expire and are bound to verified principal issuer/subject, exact tool version,
+  immutable definition fingerprint, and RFC 8785 argument digest.
+- PostgreSQL conditionally consumes a challenge in the same transaction that creates the
+  idempotency claim; rejected and losing transactions leave no orphan idempotency row.
+- The ordinary executor continues to reject mutations, preventing an alternate local path
+  around the durable guard.
+- A unique scoped key and semantic request digest arbitrate concurrent duplicates. Different
+  requests conflict, while identical requests recover pending or terminal state.
+- Mutation-state failure before a claim fails closed. Ambiguous post-dispatch outcomes are not
+  automatically retried.
+
+The live token remains bearer material for its bound principal until use or expiry. PostgreSQL
+administrator compromise, target-side duplicate behavior, and process failure between external
+effect and terminal persistence remain residual risks. See [Mutation safety](MUTATION_SAFETY.md).
 
 ## Threats and controls
 

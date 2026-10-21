@@ -63,6 +63,14 @@ Raw response bodies, credentials, exception representations, and stack traces ar
 on the public error. A non-success HTTP status is classified before body decoding, so a
 plain-text `401` remains an upstream authentication failure.
 
+### Implemented mutation errors
+
+Phase 6 adds `mutation_confirmation_invalid`, `idempotency_conflict`,
+`idempotency_in_progress`, `mutation_state_unavailable`, and `mutation_outcome_unknown`.
+Challenge rejection reasons are intentionally collapsed at the public boundary. State-store
+failure before durable claim prevents dispatch; terminal-persistence failure after dispatch is
+reported as unknown outcome because the external effect cannot be rolled back or inferred.
+
 ## Upstream decoding order
 
 The executor processes a response in this order:
@@ -111,10 +119,11 @@ telemetry and low-cardinality metrics.
 
 ## Ambiguous mutation outcomes
 
-If a connection drops after dispatch, SentinelMCP records `OUTCOME_UNKNOWN` unless the target
-supports status lookup or durable idempotency. The idempotency record remains associated with
-that unknown outcome; a duplicate caller receives the same state rather than triggering a new
-mutation. Reconciliation is an explicit operator action and is audited.
+If a connection drops after dispatch, SentinelMCP records `outcome_unknown` when it can persist
+the normalized failure. If the process or database fails before terminal persistence, the
+record remains `pending`. A duplicate caller receives the durable state rather than triggering
+a new mutation. Reconciliation is an explicit operator action; an audited reconciliation
+command remains later work.
 
 ## Storage degradation
 

@@ -12,9 +12,9 @@ and one-time consumption across concurrent gateway replicas.
 ## Decision
 
 Generate a cryptographically random opaque token and store only its hash in PostgreSQL. Bind
-the record to actor, agent, immutable tool version, canonical argument digest, policy version,
-and expiry. Atomically transition the record from active to consumed in the same transaction
-that claims the mutation's idempotency record.
+the record to verified principal issuer and subject, exact immutable tool version, definition
+fingerprint, canonical argument digest, and expiry. Atomically transition the record from
+active to consumed in the same transaction that claims the mutation's idempotency record.
 
 ## Alternatives considered
 
@@ -28,3 +28,5 @@ that claims the mutation's idempotency record.
 - Database unavailability blocks confirmed mutations, which is the intended fail-closed mode.
 - Canonical JSON behavior becomes part of the compatibility contract and requires test vectors.
 - Raw confirmation tokens must never be logged or persisted.
+- Current authorization is re-evaluated at confirmation; policy configuration itself is not
+  versioned or persisted in this phase.

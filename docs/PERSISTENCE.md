@@ -2,15 +2,15 @@
 
 ## Scope
 
-Phase 4 makes immutable tool contracts durable without changing `ToolRegistry`. PostgreSQL is
-an adapter behind that protocol; `ToolExecutor` and the REST gateway continue to consume only
-domain objects. The in-memory implementation remains available for isolated tests and local
-composition.
+Phase 4 makes immutable tool contracts durable without changing `ToolRegistry`; Phase 6 adds
+durable mutation challenges and idempotency outcomes behind `MutationStateStore`. PostgreSQL
+adapters remain outside domain and application contracts. The in-memory registry remains
+available for isolated tests and local composition.
 
 Runtime bindings are still process-local operational state. PostgreSQL stores what a tool
 version means, while `InMemoryRuntimeBindingRegistry` decides where that exact version runs.
-Redis is absent because this phase has no distributed rate-limit, circuit-breaker, lease,
-confirmation, or cache requirement.
+Redis is absent. PostgreSQL's transaction and uniqueness semantics provide the durable
+confirmation and idempotency arbitration; no additional coordination store is justified yet.
 
 ## Storage model
 
@@ -33,6 +33,17 @@ assume hash collision impossibility.
 Canonical content is stored as `bytea`, not `jsonb`, so PostgreSQL never rewrites the bytes
 used for semantic equality. The separate identity columns support bounded queries and are
 verified against reconstructed content on every definition read.
+
+Alembic revision `0002` adds:
+
+- `mutation_challenges`, keyed by challenge UUID with a unique token digest, exact principal
+  and tool binding, definition and argument digests, expiry, and nullable consumption time;
+- `mutation_idempotency`, keyed by record UUID with a unique principal/tool/caller-key scope,
+  semantic request digest, request/execution identifiers, state, and bounded serialized outcome.
+
+Database checks permit only `pending`, `succeeded`, and `outcome_unknown`, and require an
+outcome exactly for terminal states. The raw confirmation token is not represented in either
+table. Detailed claim and crash semantics are in [Mutation safety](MUTATION_SAFETY.md).
 
 ## Registration transaction
 
@@ -91,9 +102,9 @@ export SENTINELMCP_DATABASE_URL='postgresql+psycopg://user:password@localhost:54
 python -m alembic upgrade head
 ```
 
-PowerShell uses `$env:SENTINELMCP_DATABASE_URL = '...'`. Revision `0001` supports downgrade to
-`base`; the migration test exercises fresh upgrade, schema inspection, downgrade, and a second
-upgrade.
+PowerShell uses `$env:SENTINELMCP_DATABASE_URL = '...'`. Revisions `0001` and `0002` support
+downgrade to `base`; the migration test exercises fresh upgrade, schema inspection, downgrade,
+and a second upgrade.
 
 ## Local PostgreSQL
 
@@ -142,7 +153,7 @@ sequenceDiagram
   adapter or explicit thread offload if measured gateway load shows event-loop contention.
 - There is no update/delete operation in `ToolRegistry`; migration or administrative repair is
   separate from normal application behavior.
-- Runtime bindings, audit records, policy state, confirmations, and execution state are not
-  persisted in this phase.
-- Redis, retries, circuit breakers, authentication, authorization, and telemetry remain later
-  work.
+- Runtime bindings, audit records, and policy state remain process-local or unimplemented.
+- Mutation challenges and idempotency outcomes are durable, but there is no automated stale
+  pending reconciliation or retention cleanup yet.
+- Redis, retries, circuit breakers, and telemetry remain later work.

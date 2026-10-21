@@ -6,10 +6,11 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 5 are complete. SentinelMCP can durably register exact
+> **Project status:** Phases 1 through 6 are complete. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
-> synthetic or HTTP adapters behind FastAPI. Mutation confirmation and reliability controls
-> are not implemented yet; this is not production-ready software.
+> synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
+> confirmation, and idempotency state. Reliability controls are not implemented yet; this is
+> not production-ready software.
 
 ## Why this exists
 
@@ -70,18 +71,21 @@ See [Architecture](docs/ARCHITECTURE.md) and
   audience, signature, and time validation
 - Immutable normalized principals and required default-deny authorization before dispatch
 - Exact tool-identity and read/mutation policy with role/scope conditions and deny precedence
+- PostgreSQL-backed mutation preview with hashed, expiring, exact-request-bound confirmations
+- Atomic single-use challenge consumption and durable scoped idempotency records
+- Terminal outcome recovery, conflict detection, fail-closed storage behavior, and real
+  32-client race tests
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
 [Execution lifecycle](docs/EXECUTION_LIFECYCLE.md). Durable storage is documented in
 [PostgreSQL persistence](docs/PERSISTENCE.md), and the security boundary is documented in
-[Security model](docs/SECURITY_MODEL.md).
+[Security model](docs/SECURITY_MODEL.md). Mutation delivery limits are documented in
+[Mutation safety](docs/MUTATION_SAFETY.md).
 
 ## Planned capabilities
 
 - MCP entry point sharing the transport-independent execution contract
-- Preview and single-use confirmation for sensitive mutations
-- Idempotency records for mutation retry safety
 - Deadline propagation, bounded retries, and three-state circuit breakers
 - Redacted append-only audit events and deterministic replay against synthetic services
 - OpenTelemetry traces, Prometheus metrics, and checked-in Grafana dashboards
@@ -154,7 +158,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 3 | Gateway and execution orchestration | Complete |
 | 4 | Durable PostgreSQL tool registry | Complete |
 | 5 | Authentication and authorization | Complete |
-| 6 | Mutation confirmation and idempotency | Planned |
+| 6 | Mutation confirmation and idempotency | Complete |
 | 7 | Retries, deadlines, circuit breakers, error normalization | Planned |
 | 8 | OpenTelemetry, Prometheus, Grafana | Planned |
 | 9 | Synthetic tools and fault injection | Planned |

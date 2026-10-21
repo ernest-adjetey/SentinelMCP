@@ -120,8 +120,8 @@ provider, signing-key store, or transport is secure.
 - The principal has no delegated agent identity or tenant model.
 - TLS termination and trusted signing-key delivery are deployment concerns.
 - The REST adapter does not yet impose a raw request-body byte limit.
-- Mutation confirmation, idempotency, durable audit, rate limiting, outbound endpoint policy,
-  and replay controls belong to later phases.
+- Mutation confirmation and local idempotency arbitration are implemented. Durable audit, rate
+  limiting, outbound endpoint policy, and replay controls belong to later phases.
 
 See [Threat model](THREAT_MODEL.md) for broader system threats and
 [ADR 0007](adr/0007-signed-jwt-and-exact-policy.md) for the decision rationale.
