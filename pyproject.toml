@@ -25,7 +25,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+  "fastapi>=0.115,<1",
+  "httpx>=0.28,<1",
   "jsonschema>=4.23,<5",
+  "pydantic>=2.9,<3",
   "rfc8785>=0.1.4,<1",
   "semver>=3.0,<4",
 ]
