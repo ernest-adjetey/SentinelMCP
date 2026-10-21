@@ -10,6 +10,7 @@ not rewritten.
 | [0002](adr/0002-persisted-confirmations.md) | Persist opaque, single-use mutation confirmations | Accepted |
 | [0003](adr/0003-delivery-semantics.md) | Claim idempotent acceptance, not universal exactly-once effects | Accepted |
 | [0004](adr/0004-immutable-versioned-tool-contracts.md) | Make exact tool versions immutable and content-addressable | Accepted |
+| [0005](adr/0005-contract-identity-runtime-binding.md) | Separate contract identity from runtime binding | Accepted |
 
 ## Decision checklist
 

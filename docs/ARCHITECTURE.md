@@ -134,7 +134,26 @@ with a unique constraint and transactional conflict handling.
 
 Schema compilation and fingerprinting belong to `registry`; framework-independent identifier,
 policy, definition, and error types belong to `domain`. Endpoint routing is intentionally
-deferred until the execution boundary can enforce SSRF controls and credential separation.
+deferred in Phase 2 until a separate execution boundary exists.
+
+### Phase 3 execution boundary
+
+The application `ToolExecutor` owns the single-attempt lifecycle without importing FastAPI or
+HTTPX. It resolves an exact definition, validates arguments, rejects mutations until their
+safety phase, resolves a runtime binding for the same exact reference, invokes one adapter,
+and validates successful output. It returns immutable `ExecutionSuccess` or `ExecutionFailure`
+values instead of leaking adapter exceptions.
+
+`RuntimeToolBinding` is mutable operational state, not semantic registry content. It associates
+an exact `ToolRef` with a configured `ToolAdapter`; endpoint and handler configuration therefore
+does not alter the immutable definition fingerprint. The current binding registry is
+process-local and lock-protected.
+
+The synthetic and HTTP adapters share one protocol. The HTTP adapter performs one request,
+classifies status before body interpretation, accepts bounded UTF-8 JSON success bodies, and
+does not follow redirects. The FastAPI adapter translates JSON envelopes to and from the core
+executor. See [Execution lifecycle](EXECUTION_LIFECYCLE.md) and
+[ADR 0005](adr/0005-contract-identity-runtime-binding.md).
 
 ## 5. Canonical request context
 
@@ -215,6 +234,10 @@ leases. Durable safety evidence does not exist only in Redis. Degradation behavi
 mutations fail closed when coordination state required for safety is unavailable.
 
 ## 9. Execution semantics
+
+Phase 3 implements the status/content/body/schema order and deliberately makes only one adapter
+attempt. The deadline, retry, and circuit-breaker statements below remain later-phase design
+requirements, not current behavior.
 
 - A deadline is a budget for the whole call, not a fresh timeout for every retry.
 - Retry delays consume that budget.

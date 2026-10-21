@@ -52,18 +52,28 @@ semantics introduced in later phases.
 
 ## Phase 3: Gateway and execution orchestration
 
+**Status: Complete**
+
 **Deliverables**
 
-- FastAPI REST adapter and MCP adapter using one application orchestrator
-- Request context, stable response envelope, request-size limits, and deadline parsing
-- HTTP execution port with deterministic fake implementation
-- Initial CLI for tool discovery and calls
+- Immutable execution request, context, result, identifier, and error values
+- Persistence-neutral runtime binding resolver and transport-neutral adapter protocol
+- One transport-independent application executor using exact tool references
+- Deterministic read-only synthetic tools registered through the Phase 2 registry
+- Single-attempt HTTP adapter with bounded status-first JSON response handling
+- FastAPI `POST /v1/execute` adapter and stable response envelopes
 
 **Tests**
 
-- REST/MCP contract parity
-- API validation and cancellation behavior
-- No upstream call after pre-execution rejection
+- Unit coverage for models, bindings, executor ordering, HTTP normalization, and safe failures
+- Integrated registry, binding, executor, and synthetic-tool pipeline
+- FastAPI success and structured-failure contract tests
+- Properties proving invalid input never dispatches, invalid output never succeeds, and request
+  arguments remain isolated from caller mutation
+
+MCP, CLI execution, cancellation policy, request-wide deadlines, retries, circuit breaking,
+authentication, authorization, mutation confirmation, persistence, and telemetry remain
+deferred to their owning phases.
 
 ## Phase 4: PostgreSQL and Redis
 

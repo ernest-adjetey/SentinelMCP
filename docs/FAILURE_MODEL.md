@@ -51,6 +51,18 @@ keyword. Messages do not include raw argument or output values. `ToolAlreadyExis
 available for adapters that need it, while the in-memory registry reports identical exact
 registration as the successful `already_registered` status.
 
+### Implemented execution errors
+
+Phase 3 returns immutable successes or failures rather than raising transport exceptions through
+the gateway. Execution failures carry a safe message, exact reference, request/execution IDs,
+optional upstream status, and bounded validation issues. Categories distinguish lookup, input,
+binding, adapter, upstream status, timeout/connection, media type, malformed/oversized body,
+output-schema, blocked mutation, and unexpected internal failures.
+
+Raw response bodies, credentials, exception representations, and stack traces are never fields
+on the public error. A non-success HTTP status is classified before body decoding, so a
+plain-text `401` remains an upstream authentication failure.
+
 ## Upstream decoding order
 
 The executor processes a response in this order:
@@ -67,6 +79,9 @@ The executor processes a response in this order:
 At no point does it assume that a successful HTTP status implies valid JSON.
 
 ## Retry matrix
+
+Phase 3 performs exactly one adapter attempt and never retries. This matrix is the planned Phase
+7 policy and is not executable behavior yet.
 
 | Operation | Failure | Automatic retry? |
 | --- | --- | --- |

@@ -48,6 +48,10 @@ authorization signal.
 
 ## Security invariants
 
+These are target invariants for the first production-capable release, not a claim that every
+control is implemented. The Phase 3 gateway has no authentication or authorization and exposes
+only synthetic read tools; it is a development vertical slice and is not production-safe.
+
 1. No tool executes before authentication, schema validation, and authorization succeed.
 2. A sensitive mutation executes only after a matching, unexpired, single-use confirmation is
    atomically consumed.
@@ -70,6 +74,22 @@ authorization signal.
   reported issue count are also bounded.
 - Exact versions cannot be overwritten. Canonical bytes are compared in addition to SHA-256
   fingerprints, so registry correctness does not assume collision resistance alone.
+
+## Phase 3 implemented controls
+
+- Gateway requests select one exact version; the executor never substitutes `latest`.
+- Arguments are detached and schema-validated before binding resolution or adapter dispatch.
+- Mutations fail closed until confirmation and idempotency safeguards are implemented.
+- Runtime targets are separate from immutable contracts. HTTP target URLs reject embedded
+  credentials and fragments, and redirects are not followed.
+- Non-success HTTP status is classified before content-type or JSON parsing. Successful bodies
+  require a supported UTF-8 JSON media type, bounded bytes, unique object keys, and valid JSON.
+- Successful adapter output is detached and validated against the exact registered output schema.
+- Public errors contain no raw bodies, exception text, credentials, or stack traces.
+
+The HTTP adapter does not yet enforce endpoint allowlists, DNS/IP restrictions, credential
+injection, or administrative binding authorization. Runtime target configuration must remain
+trusted until those controls exist.
 
 ## Threats and controls
 

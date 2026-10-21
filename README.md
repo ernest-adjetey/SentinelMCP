@@ -6,9 +6,10 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 and 2 are complete. Architecture boundaries and an immutable,
-> versioned in-memory tool registry are implemented with Draft 2020-12 schema validation. The
-> runtime gateway, network execution, and durable persistence are not implemented yet.
+> **Project status:** Phases 1 through 3 are complete. SentinelMCP can execute exact immutable
+> tool versions through synthetic or HTTP adapters and expose the lifecycle through FastAPI.
+> Authentication, mutation confirmation, reliability controls, and durable persistence are not
+> implemented yet; this is not production-ready software.
 
 ## Why this exists
 
@@ -58,18 +59,23 @@ See [Architecture](docs/ARCHITECTURE.md) and
 - Persistence-independent registry protocol and thread-safe in-memory implementation
 - Exact lookup, deterministic listing, SemVer ordering, and latest-version resolution
 - Idempotent identical registration and immutable conflict rejection
+- Immutable execution requests, contexts, structured successes, and structured failures
+- Exact-version runtime bindings kept separate from semantic tool definitions
+- Deterministic synthetic tools and a single-attempt bounded HTTP adapter
+- Status-first upstream classification, safe JSON decoding, and output-schema enforcement
+- Minimal `POST /v1/execute` FastAPI gateway with stable success and error envelopes
 
 The full behavioral contract and current limits are in
-[Tool registry and schemas](docs/TOOL_REGISTRY.md).
+[Tool registry and schemas](docs/TOOL_REGISTRY.md) and
+[Execution lifecycle](docs/EXECUTION_LIFECYCLE.md).
 
 ## Planned capabilities
 
-- MCP-compatible and REST entry points with a shared execution contract
+- MCP entry point sharing the transport-independent execution contract
 - Authentication, RBAC, operation classification, and policy decisions
 - Preview and single-use confirmation for sensitive mutations
 - Idempotency records for mutation retry safety
 - Deadline propagation, bounded retries, and three-state circuit breakers
-- Structured upstream response validation and normalized errors
 - Redacted append-only audit events and deterministic replay against synthetic services
 - OpenTelemetry traces, Prometheus metrics, and checked-in Grafana dashboards
 - Fault injection, reliability evaluation, and reproducible performance benchmarks
@@ -84,7 +90,7 @@ src/sentinelmcp/
   registry/          Tool definitions, versions, and execution policies
   policy/            Authentication context and authorization decisions
   mutation_guard/    Preview, confirmation, replay protection, idempotency
-  execution/         Deadlines, retries, circuit breaking, upstream decoding
+  execution/         Runtime bindings, adapter protocol, bounded upstream normalization
   audit/             Redaction and append-only audit events
   telemetry/         Traces, metrics, and structured logging
   replay/            Safe reconstruction against synthetic services
@@ -127,7 +133,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | --- | --- | --- |
 | 1 | Architecture, repository structure, quality baseline | Complete |
 | 2 | Tool registry and schemas | Complete |
-| 3 | Gateway and execution orchestration | Planned |
+| 3 | Gateway and execution orchestration | Complete |
 | 4 | PostgreSQL and Redis persistence | Planned |
 | 5 | Authentication and authorization | Planned |
 | 6 | Mutation confirmation and idempotency | Planned |

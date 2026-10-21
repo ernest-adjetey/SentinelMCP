@@ -1,4 +1,5 @@
 # Integration Tests
 
-Disposable PostgreSQL, Redis, and synthetic-service tests begin when those dependencies are
-implemented. Tests must own their state and expose missing prerequisites explicitly.
+Phase 3 composes the real in-memory tool registry, runtime binding registry, application
+executor, schema validators, and synthetic adapters as one pipeline. Database and external
+service integration remains deferred.

@@ -7,5 +7,7 @@
 - `concurrency/`: race conditions, leases, idempotency, and cancellation
 - `property/`: generated schema, canonicalization, and state-machine cases
 
-Phase 2 includes unit, architecture, property, and process-local concurrent registration
-coverage. API and external-state integration suites remain empty until their owning phases.
+Phase 3 adds unit coverage for execution models, bindings, adapters, and orchestration; an
+integrated registry-to-synthetic-tool pipeline; FastAPI contract tests through HTTPX ASGI
+transport; and generated execution invariants. External-state integration remains empty until
+persistence is introduced.
