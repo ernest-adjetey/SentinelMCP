@@ -6,25 +6,27 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Phase 5 documentation commit
-- **Completed phases:** 1, 2, 3, 4, 5
-- **Current HEAD:** `5676293` (`main`, Prove authentication and authorization invariants)
-- **Uncommitted work:** Phase 5 documentation and this checkpoint
+- **Current phase:** Phase 7 reliability control design
+- **Completed phases:** 1, 2, 3, 4, 5, 6
+- **Completed Phase 6 HEAD:** `30b4e35` (`main`, Document Phase 6 mutation safety)
+- **Uncommitted work:** This Phase 7 checkpoint transition only
 - **Staged work:** None
 - **Remote:** None configured
 
 ## Last verified evidence
 
-- Complete suite: 324 passed, 0 skipped, 0 warnings
-- Branch coverage: 97.16%
-- Real PostgreSQL lane: 31 passed
+- Complete suite: 377 passed, 0 skipped, 0 warnings
+- Branch coverage: 95.76%
+- Real PostgreSQL lane: 45 collected and passed in the complete suite
 - Ruff format and lint: passed
-- Strict mypy: passed (65 source files)
+- Strict mypy: passed (78 source files)
 - Alembic CLI upgrade: passed
 - Docker Compose v5.6.0 configuration validation: passed
-- Wheel and source distribution: built and contents inspected
-- Isolated installed-wheel PostgreSQL execution smoke: passed
-- Isolated installed-wheel signed-JWT authentication and execution smoke: passed
+- Phase 6 wheel and source distribution: built and contents inspected
+- Artifact Apache-2.0 license files and metadata: verified
+- Isolated installed-wheel dependency check: passed
+- Isolated installed-wheel signed-JWT mutation preview/confirm/reuse smoke: passed with one
+  PostgreSQL-backed adapter dispatch
 - PostgreSQL: project-local PostgreSQL 17.11 running on `127.0.0.1:54329`
 - Test URL: `postgresql+psycopg://sentinelmcp_test@127.0.0.1:54329/sentinelmcp_test`
 - Benchmark status: not started; no performance claims exist
@@ -33,8 +35,11 @@ diff. Update it after every significant milestone and commit.
 
 - Phase 4 uses synchronous SQLAlchemy behind a synchronous registry protocol.
 - Runtime bindings remain process-local.
-- Mutation safety, reliability controls, observability, audit, replay, MCP transport,
-  evaluation, and benchmarks are not implemented yet.
+- Mutation safety does not provide universal exactly-once effects. A crash before dispatch and
+  a crash after an external effect but before terminal persistence can both leave `pending`;
+  there is no automatic redrive or reconciliation command yet.
+- Downstream idempotency-key propagation, reliability controls, observability, audit, replay,
+  MCP transport, evaluation, and benchmarks are not implemented yet.
 - Authentication uses static configured verification keys; OIDC/JWKS networking, revocation,
   delegated-agent identity, and persisted policy are not implemented.
 - Docker is unavailable on this host; Compose config validation requires a standalone Docker
@@ -42,10 +47,13 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Commit the Phase 5 security documentation.
-2. Confirm the Phase 5 tree and history are understood.
-3. Begin Phase 6 durable confirmation and idempotency schema design.
-4. Implement canonical mutation request binding and preview without adapter dispatch.
+1. Define request-wide deadline, retry-decision, retry-budget, rate-limit,
+   and circuit-breaker protocols around the existing single-attempt dispatcher.
+2. Preserve mutation safety: no automatic mutation retry without explicit downstream
+   idempotency support and propagation.
+3. Add deterministic clock/randomness tests before introducing operational adapters.
+4. Decide whether process-local rate and circuit state is sufficient for the first executable
+   phase; add Redis only if a proven cross-replica invariant requires it.
 
 ## Resume commands
 
