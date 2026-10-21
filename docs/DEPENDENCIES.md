@@ -17,6 +17,7 @@ covers maintenance activity, license, transitive footprint, security posture, an
 | SQLAlchemy | Runtime | Typed Core queries, explicit transactions, pooling, and PostgreSQL dialect support |
 | psycopg | Runtime | Supported PostgreSQL 3 driver with binary wheels for local and CI environments |
 | Alembic | Runtime tooling | Versioned, reviewable PostgreSQL schema upgrades and downgrades |
+| PyJWT with crypto extra | Runtime | Standards-aware signed-JWT validation with asymmetric algorithm support |
 | Hatchling | Build only | Minimal PEP 517 backend for the `src` package layout |
 | Hypothesis | Development | Generated invariant tests for canonicalization, registry state, and validation |
 | Pytest | Development | Test discovery, fixtures, parametrization, and future async/plugin ecosystem |
@@ -41,6 +42,8 @@ current quality run.
 | SQLAlchemy | MIT | Core-only database abstraction; PostgreSQL-specific insertion remains isolated to `registry.postgres`. | Medium: replacement must preserve transaction ownership, pooling, and dialect behavior. |
 | psycopg | LGPL-3.0-only | PostgreSQL protocol driver; the `binary` extra supplies a prebuilt implementation for supported platforms. | Medium: another driver must preserve sync SQLAlchemy behavior and PostgreSQL error semantics. |
 | Alembic | MIT | Migration runner built on SQLAlchemy; used by operators, CI, and migration tests rather than request paths. | Medium: replacing it requires an equivalent ordered schema history and downgrade policy. |
+| PyJWT | MIT | Parses and verifies JWTs behind `JWTAuthenticator`; algorithms, issuer, audience, required claims, key IDs, and token size are constrained by SentinelMCP. | Medium: replacement must preserve the rejection matrix and avoid token-controlled key retrieval. |
+| cryptography | Apache-2.0 OR BSD-3-Clause | Installed by PyJWT's `crypto` extra for Ed25519 verification; includes native components and transitively uses `cffi` and `pycparser` on this platform. | High: removing it requires another maintained asymmetric-signature implementation. |
 | Hypothesis | MPL-2.0 | Development only; its required dependency is `sortedcontainers`. Generated examples are not shipped. | Low: example tests remain, but property coverage would be lost. |
 | types-jsonschema | Apache-2.0 | Development only; contributes typing metadata and no runtime behavior. | Low: removal would require local protocols or targeted ignores. |
 
@@ -62,6 +65,16 @@ Operations are short, engines are injected, and each method explicitly owns its 
 transaction. An async database stack would add a second registry shape or force async through
 the domain boundary before load measurements justify it. Alembic owns schema evolution;
 production paths never auto-create tables.
+
+### Phase 5 dependency choice
+
+PyJWT 2.15.1 is bounded below major version 3 and supplies maintained JWT claim and signature
+verification rather than custom cryptographic parsing. The `crypto` extra brings cryptography
+50.0.2 for Ed25519 support. `JWTAuthenticator` remains the isolation boundary, so policy and
+application code do not import PyJWT or cryptography. The complete rejection matrix covers
+algorithm confusion, signature failure, unknown keys, malformed claims, issuer/audience, and
+time validation. Installed metadata reports MIT for PyJWT, Apache-2.0 OR BSD-3-Clause for
+cryptography, MIT-0 for `cffi`, and BSD-3-Clause for `pycparser`.
 
 ## Planned runtime dependencies
 

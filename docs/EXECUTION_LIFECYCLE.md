@@ -2,10 +2,11 @@
 
 ## Status and scope
 
-Phase 3 implements one real execution path from a FastAPI request to an exact immutable tool
-contract, runtime binding, adapter invocation, output validation, and stable response. It does
-not implement authentication, authorization, mutation confirmation, persistence, retries,
-circuit breaking, telemetry, replay, or benchmarks.
+Phases 3 through 5 implement one real execution path from a signed-JWT-authenticated FastAPI
+request to an exact immutable tool contract, authorization decision, runtime binding, adapter
+invocation, output validation, and stable response. The contract registry can be in memory or
+PostgreSQL. Mutation confirmation, retries, circuit breaking, telemetry, replay, and
+benchmarks are not implemented yet.
 
 The public demo registers only read tools. A registered mutation is rejected before binding
 resolution with `mutation_not_supported` until the confirmation and idempotency phase exists.
@@ -34,20 +35,26 @@ diagnosis; duration uses only monotonic subtraction.
 sequenceDiagram
     participant Client
     participant REST as FastAPI gateway
+    participant AuthN as JWT authenticator
     participant Executor
     participant Registry
     participant Validator
+    participant AuthZ as Authorization policy
     participant Bindings as Runtime bindings
     participant Adapter
     participant Tool as Synthetic or HTTP tool
 
     Client->>REST: POST /v1/execute
+    REST->>AuthN: verify bearer token
+    AuthN-->>REST: normalized Principal
     REST->>REST: parse exact ToolRef and freeze arguments
-    REST->>Executor: ExecutionRequest
+    REST->>Executor: ExecutionRequest + Principal
     Executor->>Registry: get(exact ToolRef)
     Registry-->>Executor: immutable ToolDefinition
     Executor->>Validator: validate arguments
     Validator-->>Executor: valid or structured issues
+    Executor->>AuthZ: authorize principal, identity, operation
+    AuthZ-->>Executor: allow or deny
     Executor->>Bindings: resolve(exact ToolRef)
     Bindings-->>Executor: current adapter binding
     Executor->>Adapter: immutable invocation context
@@ -60,8 +67,10 @@ sequenceDiagram
     REST-->>Client: stable JSON envelope
 ```
 
-Arguments are validated before runtime binding resolution or adapter invocation. Unknown exact
-versions, invalid input, unbound tools, and mutations therefore perform no tool work.
+Credentials are verified before entering the executor. Arguments are validated before policy,
+runtime binding resolution, or adapter invocation. Policy is evaluated before mutation
+handling and bindings. Unknown exact versions, invalid input, unauthenticated or unauthorized
+callers, unbound tools, and mutations therefore perform no tool work.
 
 ## Contract identity and runtime binding
 
@@ -110,11 +119,12 @@ UTF-8, malformed or duplicate-key JSON, over-limit bodies, and output-schema vio
 
 ## Error categories
 
-Phase 3 uses one stable enum and a bounded `ExecutionError` containing a safe message, optional
-upstream status, and optional schema issues. Implemented categories are:
+The executor uses one stable enum and a bounded `ExecutionError` containing a safe message,
+optional upstream status, and optional schema issues. Implemented categories are:
 
-- request and routing: `invalid_request`, `tool_not_found`, `input_validation_failed`,
-  `mutation_not_supported`, `binding_not_found`;
+- request, security, and routing: `invalid_request`, `authentication_failed`, `tool_not_found`,
+  `input_validation_failed`, `authorization_failed`, `mutation_not_supported`,
+  `binding_not_found`;
 - adapter and status: `adapter_failure`, `upstream_bad_request`,
   `upstream_authentication_failed`, `upstream_authorization_failed`, `upstream_not_found`,
   `upstream_conflict`, `upstream_rate_limited`, `upstream_status_error`,
@@ -137,10 +147,11 @@ Messages never include raw arguments, bodies, credentials, exception text, or st
 ```
 
 A success returns HTTP 200 with request/execution IDs, exact tool text, monotonic duration, and
-validated result. Invalid envelopes or arguments use 422; unknown tools use 404; blocked
-mutations use 409; missing bindings and upstream unavailability use 503; upstream timeout uses
-504; internal defects use 500; other adapter/upstream/response-contract failures use 502.
-External HTTP status is an API mapping, not the internal error taxonomy.
+validated result. Missing or invalid credentials use 401; denied policy uses 403; invalid
+envelopes or arguments use 422; unknown tools use 404; blocked mutations use 409; missing
+bindings and upstream unavailability use 503; upstream timeout uses 504; internal defects use
+500; other adapter/upstream/response-contract failures use 502. External HTTP status is an API
+mapping, not the internal error taxonomy.
 
 The runnable demo ASGI app is `sentinelmcp.adapters.rest.demo:app`.
 
@@ -158,7 +169,9 @@ All definitions use the real immutable registry, schemas, bindings, executor, an
 - HTTP has one configured per-attempt timeout; timeout is classified and returned.
 - There is no endpoint allowlist, DNS/IP policy, credential injection, or redirect policy beyond
   refusing redirects. The HTTP adapter is not production-safe for untrusted target configuration.
-- There is no authentication, authorization, rate limiting, mutation confirmation, idempotent
-  execution, persistence, distributed binding coordination, audit, telemetry, or replay.
+- There is no token issuance, remote key discovery, revocation, persisted policy, delegated
+  agent identity, rate limiting, mutation confirmation, idempotent execution, distributed
+  binding coordination, audit, telemetry, or replay. Contract persistence is implemented, but
+  runtime bindings remain process-local.
 - There is no MCP transport adapter or CLI execution command yet. Both can call the same core
   executor once their boundary contracts are implemented.

@@ -11,6 +11,8 @@ not rewritten.
 | [0003](adr/0003-delivery-semantics.md) | Claim idempotent acceptance, not universal exactly-once effects | Accepted |
 | [0004](adr/0004-immutable-versioned-tool-contracts.md) | Make exact tool versions immutable and content-addressable | Accepted |
 | [0005](adr/0005-contract-identity-runtime-binding.md) | Separate contract identity from runtime binding | Accepted |
+| [0006](adr/0006-postgresql-durable-tool-contract-store.md) | Use PostgreSQL for durable immutable tool contracts | Accepted |
+| [0007](adr/0007-signed-jwt-and-exact-policy.md) | Verify signed JWTs and require exact default-deny authorization | Accepted |
 
 ## Decision checklist
 

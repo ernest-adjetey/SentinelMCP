@@ -100,18 +100,27 @@ confirmation, and reliability controls remain deferred until their owning requir
 
 ## Phase 5: Authentication and authorization
 
+**Status: Complete**
+
 **Deliverables**
 
-- Validated identity context with issuer/audience/expiry/algorithm checks
-- RBAC policy model with explicit actor, agent, tool, and operation permissions
-- Versioned policy decisions and denial reason codes
-- Administrative separation for tool registration and replay
+- Bounded signed-JWT verification with explicit key IDs and algorithm allowlist
+- Normalized immutable principal containing subject, issuer, roles, and scopes
+- Required executor authorization boundary after validation and before dispatch
+- Default-deny exact tool-identity and operation-class policy with deny precedence
+- Stable authentication and authorization failure categories at the REST boundary
 
 **Tests**
 
-- Authentication and authorization matrix
-- Confused-deputy and claim-tampering cases
-- Expired, malformed, and wrong-audience credentials
+- Deterministic Ed25519 authentication matrix for expiry, not-before, issuer, audience,
+  signature, key ID, algorithm, malformed claims, and token bounds
+- Policy allow, deny precedence, all-of role/scope conditions, and default deny
+- Executor ordering and no-dispatch checks for missing identity, denial, and policy failure
+- End-to-end gateway proof that unauthenticated and unauthorized calls never invoke adapters
+
+Token issuance, OIDC/JWKS networking, revocation, delegated-agent identity, policy persistence,
+and administrative registration/replay permissions remain deferred until a concrete deployment
+or owning feature requires them.
 
 ## Phase 6: Mutation preview, confirmation, and idempotency
 

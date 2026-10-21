@@ -49,8 +49,9 @@ authorization signal.
 ## Security invariants
 
 These are target invariants for the first production-capable release, not a claim that every
-control is implemented. The Phase 3 gateway has no authentication or authorization and exposes
-only synthetic read tools; it is a development vertical slice and is not production-safe.
+control is implemented. Phase 5 implements signed-JWT authentication and default-deny
+authorization for execution. Mutation, audit, outbound-target, and rate-limit controls remain
+incomplete, so the project is not production-safe.
 
 1. No tool executes before authentication, schema validation, and authorization succeed.
 2. A sensitive mutation executes only after a matching, unexpired, single-use confirmation is
@@ -91,12 +92,33 @@ The HTTP adapter does not yet enforce endpoint allowlists, DNS/IP restrictions, 
 injection, or administrative binding authorization. Runtime target configuration must remain
 trusted until those controls exist.
 
+## Phase 5 implemented controls
+
+- The REST execution boundary accepts only a bounded Bearer token and normalizes all expected
+  credential failures to one non-diagnostic `401` response.
+- JWT verification binds a configured key ID to an explicit algorithm allowlist and verifies
+  signature, issuer, audience, expiry, issued-at, and optional not-before.
+- Unverified headers select only a preconfigured key; token-controlled key URLs and remote key
+  retrieval are absent.
+- Only subject, validated issuer, bounded roles, and bounded scopes survive as an immutable
+  principal. The raw token and arbitrary claims are not propagated.
+- Every executor composition requires an authorization policy. Matching deny precedes allow,
+  and no matching allow is deny.
+- Policy distinguishes exact tool identity and operation class, so read permission does not
+  imply mutation permission.
+- Missing identity, invalid credentials, denied policy, and policy exceptions stop before
+  runtime binding resolution or adapter invocation.
+
+Verification keys and policies are currently trusted process configuration. Token issuance,
+key distribution, revocation, policy administration, delegated-agent identity, and tenant
+isolation are not implemented. See [Security model](SECURITY_MODEL.md).
+
 ## Threats and controls
 
 | Threat | Planned controls | Residual risk / validation |
 | --- | --- | --- |
-| Forged identity | Validate issuer, audience, expiry, signature, and algorithm; reject caller-supplied actor fields | Identity provider compromise remains external |
-| Confused deputy | Bind actor and agent claims; authorize resource-independent tool action; never trust model text as a role | Delegation model needs explicit tests |
+| Forged identity | Implemented bounded signature, issuer, audience, time, key-ID, and algorithm validation; caller identity comes only from verified claims | Identity-provider and signing-key compromise remain external; revocation is absent |
+| Confused deputy | Implemented exact tool/operation authorization from normalized roles and scopes; model text is never a role | Delegated-agent and tenant models are not implemented |
 | Argument injection | Pydantic and JSON Schema validation; reject unknown fields by default; length and depth limits | A valid but harmful argument still needs policy |
 | SSRF through tool registration | Administrative registration permission; endpoint allowlist; reject loopback, link-local, metadata, and unsafe redirects | DNS rebinding requires resolution-time checks |
 | Schema or payload denial of service | Request/body limits; schema complexity limits; bounded JSON depth; execution deadlines | CPU exhaustion needs load tests |

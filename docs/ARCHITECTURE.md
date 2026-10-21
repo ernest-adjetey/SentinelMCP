@@ -155,6 +155,20 @@ does not follow redirects. The FastAPI adapter translates JSON envelopes to and 
 executor. See [Execution lifecycle](EXECUTION_LIFECYCLE.md) and
 [ADR 0005](adr/0005-contract-identity-runtime-binding.md).
 
+### Phase 5 security boundary
+
+The REST adapter verifies a bounded signed JWT before constructing a core execution request.
+Only the normalized subject, issuer, roles, and scopes enter the application layer. The
+`ToolExecutor` requires an `AuthorizationPolicy`; it resolves the exact contract and validates
+arguments before evaluating policy, then stops denied requests before mutation handling,
+binding lookup, or adapter dispatch.
+
+The current rule model matches tool identity and read/mutation operation class, optionally
+requiring all listed roles and scopes. Explicit deny precedes allow, and no matching allow is
+deny. Policy and verification keys are process configuration rather than persisted state.
+See [Security model](SECURITY_MODEL.md) and
+[ADR 0007](adr/0007-signed-jwt-and-exact-policy.md).
+
 ## 5. Canonical request context
 
 Every accepted request receives or derives:
@@ -176,6 +190,7 @@ labels because their cardinality is unbounded.
 sequenceDiagram
     participant Agent
     participant Gateway
+    participant AuthN as Authenticator
     participant Policy
     participant Registry
     participant Executor
@@ -183,6 +198,8 @@ sequenceDiagram
     participant Audit
 
     Agent->>Gateway: structured call + credentials + deadline
+    Gateway->>AuthN: verify bounded signed JWT
+    AuthN-->>Gateway: normalized principal
     Gateway->>Registry: resolve exact tool version
     Gateway->>Gateway: validate arguments and request size
     Gateway->>Policy: authorize actor, agent, tool, operation
