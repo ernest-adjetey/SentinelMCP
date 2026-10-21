@@ -79,6 +79,18 @@ The pre-dispatch intent proves only that SentinelMCP was ready to dispatch; it d
 external service received or committed the operation. Likewise, a missing completion event does not
 prove that no effect occurred. Reconciliation remains an explicit later operator workflow.
 
+## Replay policy
+
+Replay writes `replay_attempted` as a required pre-dispatch intent after the exact current contract,
+fingerprint, and approved synthetic binding have been checked. If the configured audit recorder
+fails, dry run and replay both fail before executor dispatch. The event contains the record's
+historical request and execution IDs for correlation but no stored arguments.
+
+The standalone CLI currently composes the recorder with `InMemoryAuditStore`, so its audit evidence
+does not survive the command process. Deployments requiring durable operator evidence must inject
+the PostgreSQL audit store. This limitation does not weaken fail-closed behavior for the configured
+recorder.
+
 ## Operational limits
 
 - Append-oriented application APIs do not prevent privileged database mutation.

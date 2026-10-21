@@ -250,7 +250,8 @@ process-local.
 ### PostgreSQL: durable source of truth
 
 Tool versions, confirmation challenges, idempotency records, and payload-free audit events are
-implemented as durable records. Policy and replay metadata remain planned for their owning phases.
+implemented as durable PostgreSQL records. Policy remains process configuration. Replay records use
+a strict append-only local file store for the operator CLI rather than PostgreSQL.
 Production schema changes use Alembic rather than runtime table creation. Audit APIs are
 append-oriented but PostgreSQL is not claimed to be cryptographically tamper-proof.
 
@@ -295,7 +296,21 @@ a versioned schema. Trace export failure must not mutate the business outcome; t
 guarantee delivery, and metrics may be lost between scrapes. Required audit persistence follows the
 read/mutation policy in [Audit contract](AUDIT.md).
 
-## 11. Scaling path
+## 11. Replay and operator CLI
+
+`ReplayService` captures one exact successful request with its immutable definition fingerprint,
+trusted historical IDs, verified principal identity, operation class, and bounded arguments. The
+default policy permits replay only for read tools declaring `replay-safe` and currently bound to a
+`SyntheticToolAdapter`. Contract drift, unavailable bindings, HTTP adapters, and mutation tools are
+rejected before dispatch.
+
+Replay is reauthorized through the current `ToolExecutor`. A `replay_attempted` audit intent is
+required first, and the same target policy is evaluated again by the executor after its final
+binding lookup. The standalone `sentinel` CLI uses these application services directly and stores
+records in a local append-only file directory. See [Safe replay](REPLAY.md) and
+[CLI reference](CLI.md).
+
+## 12. Scaling path
 
 At 10x traffic, scale stateless gateway replicas horizontally. PostgreSQL connection pools,
 Redis command volume, audit write throughput, and high-cardinality telemetry are expected
@@ -306,7 +321,7 @@ versioned events asynchronously. Policy and mutation safety remain in the synchr
 until a benchmark demonstrates a reason to separate them. A service split is not considered a
 performance fix unless queueing, consistency, and failure behavior are measured.
 
-## 12. Deployment topology
+## 13. Deployment topology
 
 Local Docker Compose currently provisions PostgreSQL, Prometheus, and Grafana. The gateway runs on
 the host and exposes its private Prometheus registry at `/metrics`; no Redis, gateway container, or

@@ -6,7 +6,7 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 8 are complete. SentinelMCP can durably register exact
+> **Project status:** Phases 1 through 9 are complete. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
 > confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
@@ -87,6 +87,11 @@ See [Architecture](docs/ARCHITECTURE.md) and
 - OpenTelemetry API lifecycle spans, bounded structured JSON logs, and low-cardinality Prometheus
   metrics exposed through an optional `/metrics` endpoint
 - Provisioned local Prometheus and Grafana configuration with a signal-focused dashboard
+- Versioned bounded replay records with strict local append-only persistence and drift detection
+- Synthetic-only replay by default with current reauthorization, pre-dispatch audit, dry run, and
+  a final binding guard against target replacement
+- JSON-emitting `sentinel` commands for tool discovery, execution, record inspection, replay,
+  evaluation smoke checks, and bounded diagnostic benchmarks
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
@@ -96,13 +101,26 @@ The full behavioral contract and current limits are in
 [Mutation safety](docs/MUTATION_SAFETY.md).
 [Reliability controls](docs/RELIABILITY.md) defines the retry matrix and deployment limits.
 [Audit contract](docs/AUDIT.md) and [Observability](docs/OBSERVABILITY.md) define the evidence,
-telemetry, redaction, and failure policies.
+telemetry, redaction, and failure policies. [Safe replay](docs/REPLAY.md) and the
+[CLI reference](docs/CLI.md) document operator workflows and their security limits.
 
 ## Planned capabilities
 
-- Deterministic replay and debugging CLI against synthetic services
 - Official MCP entry point sharing the transport-independent execution contract
 - Fault injection, reliability evaluation, and reproducible performance benchmarks
+
+## CLI quick start
+
+```bash
+sentinel tools list
+sentinel execute demo.math.add@1.0.0 --arguments '{"a":2,"b":3}' --record
+sentinel inspect RECORD_ID
+sentinel replay RECORD_ID --dry-run
+sentinel replay RECORD_ID
+```
+
+Replay defaults to the local `.sentinelmcp/replays` directory and only dispatches to explicitly
+marked synthetic read tools after current authorization and audit checks.
 
 ## Repository map
 
@@ -174,7 +192,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 6 | Mutation confirmation and idempotency | Complete |
 | 7 | Retries, deadlines, circuit breakers, error normalization | Complete |
 | 8 | Durable audit, OpenTelemetry, Prometheus, Grafana | Complete |
-| 9 | Replay and debugging CLI | Planned |
+| 9 | Replay and debugging CLI | Complete |
 | 10 | Official MCP integration | Planned |
 | 11 | Fault injection and reliability evaluation | Planned |
 | 12 | Performance benchmarking and profiling | Planned |

@@ -51,16 +51,17 @@ authorization signal.
 These are target invariants for the first production-capable release, not a claim that every
 control is implemented. Phase 5 implements signed-JWT authentication and default-deny
 authorization for execution, Phase 6 implements durable mutation confirmation and local
-idempotency arbitration, and Phase 7 implements optional process-local reliability controls.
-Audit and outbound-target controls remain incomplete, and rate controls are not cross-replica, so
-the project is not production-safe.
+idempotency arbitration, Phase 7 implements optional process-local reliability controls, Phase 8
+implements durable audit and bounded telemetry, and Phase 9 implements constrained synthetic
+replay. Outbound HTTP target controls remain incomplete, and rate controls are not cross-replica,
+so the project is not production-safe.
 
 1. No tool executes before authentication, schema validation, and authorization succeed.
 2. A sensitive mutation executes only after a matching, unexpired, single-use confirmation is
    atomically consumed.
 3. Reusing an idempotency key with different arguments is rejected.
-4. Raw secrets and configured sensitive fields never enter logs, metrics, traces, or replay
-   records.
+4. Payloads are excluded from audit and telemetry; replay rejects common sensitive field names and
+   is restricted to explicitly approved synthetic data.
 5. Replay cannot target arbitrary endpoints or bypass current authorization.
 6. Fault injection cannot be enabled through the public production request path.
 7. Mutation safety fails closed when required durable or coordination state is unavailable.
@@ -163,6 +164,24 @@ must provide protocol implementations with atomic shared state and bounded reten
 Audit storage remains administrator-mutable and therefore is not a WORM or cryptographically
 tamper-proof ledger. Trace and metric delivery are best effort.
 
+## Phase 9 implemented controls
+
+- Replay records bind exact tool versions to the historical definition fingerprint and trusted
+  execution identifiers.
+- Records are bounded, strict, append-only files; duplicate keys, schema drift, malformed names,
+  and oversized documents fail closed.
+- Recursive normalized field-name checks reject common credential, cookie, token, and secret keys.
+- Default replay requires a read operation, an explicit `replay-safe` capability, and the current
+  in-process synthetic adapter.
+- Current authorization is evaluated for dry run and execution. Historical permission is not
+  accepted as current authority.
+- A replay audit intent is required before dispatch, and target policy is checked again after the
+  executor's final binding lookup to prevent a target-swap race.
+
+The field-name denylist cannot identify secrets stored under innocuous names. The standalone CLI's
+audit store is process-local, and its replay records are not encrypted or tamper-proof. Only
+non-sensitive synthetic arguments are supported by the default workflow.
+
 ## Threats and controls
 
 | Threat | Planned controls | Residual risk / validation |
@@ -183,15 +202,16 @@ tamper-proof ledger. Trace and metric delivery are best effort.
 | Cardinality attack | Finite metric labels; exact tools, principals, request IDs, and execution IDs omitted | Additional metrics must preserve the allowlist |
 | Rate-limit bypass | Implemented trusted-principal/exact-tool token bucket | State is process-local; replicas do not share a global limit |
 | Circuit-state poisoning | Implemented health-failure classification and generation-bound probes | Exact-tool local keys do not coordinate shared endpoints or replicas |
-| Replay abuse | Synthetic targets only by default; privileged command; reauthorization; dry-run mode; audit replay attempts | Operator compromise remains high impact |
+| Replay abuse | Implemented synthetic/read/capability target policy, current reauthorization, dry-run mode, pre-dispatch audit, fingerprint check, and final binding guard | CLI audit is process-local; file records are unencrypted; operator compromise remains high impact |
 | Fault-injection exposure | Separate test configuration and package; startup refusal in production mode | Misconfigured deployment needs CI policy checks |
 | Supply-chain compromise | Pinned lockfile in a later phase, dependency review, hashes in release builds, minimal dependencies | CI runner and package index are external trust roots |
 
 ## Sensitive-data handling
 
-Tool schemas will support sensitivity annotations for fields. Redaction occurs before data is
-handed to logging, tracing, audit serialization, or replay persistence. Hashes are used only
-when equality correlation is required and are keyed where dictionary attacks are plausible.
+Audit and telemetry schemas exclude request and response payloads. Structured logging applies a
+bounded recursive redactor before emission. Replay persistence rejects common normalized sensitive
+field names, but does not yet use schema sensitivity annotations and cannot detect secrets under an
+innocuous key. Only non-sensitive synthetic arguments are supported for replay.
 
 Request and response payloads are not Prometheus labels. Error messages returned to clients do
 not include credentials, stack traces, raw upstream bodies, or internal endpoint details.

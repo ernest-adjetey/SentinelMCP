@@ -2,12 +2,14 @@
 
 ## Status and scope
 
-Phases 3 through 7 implement one real execution path from a signed-JWT-authenticated FastAPI
+Phases 3 through 9 implement one real execution path from a signed-JWT-authenticated FastAPI
 request to an exact immutable tool contract, authorization decision, runtime binding, adapter
 invocation, output validation, and stable response. The contract registry can be in memory or
 PostgreSQL. Mutations use separate durable preview and confirmation endpoints backed by
 PostgreSQL. Reads have request-wide deadlines, bounded retries, retry budgets, rate limiting, and
-circuit breaking. Telemetry, replay, MCP transport, and benchmarks are not implemented.
+circuit breaking. Phase 8 adds audit and telemetry. Phase 9 adds constrained synthetic replay and
+a local operator CLI over the same executor. MCP transport, fault evaluation, and reproducible
+benchmarks are not implemented.
 
 The public demo registers only read tools. A registered mutation is rejected by ordinary
 `ToolExecutor.execute` with `mutation_not_supported`; supported mutation callers must use
@@ -198,11 +200,13 @@ rejections expose bounded `retry_after_ms` guidance. See [Reliability controls](
 - There is no endpoint allowlist, DNS/IP policy, credential injection, or redirect policy beyond
   refusing redirects. The HTTP adapter is not production-safe for untrusted target configuration.
 - There is no token issuance, remote key discovery, revocation, persisted policy, delegated
-  agent identity, distributed binding coordination, or replay.
+  agent identity, or distributed binding coordination.
   Mutation safety is durable, but downstream idempotency propagation and automated
   reconciliation are not implemented. Runtime bindings remain process-local.
-- There is no MCP transport adapter or CLI execution command yet. Both can call the same core
-  executor once their boundary contracts are implemented.
+- Replay is limited to exact, explicitly marked synthetic read bindings. Its CLI file store and
+  default audit store are local to one host and do not provide a hosted operator security boundary.
+- There is no MCP transport adapter yet. It must call the same core executor when its boundary
+  contract is implemented.
 
 ## Audit and observability
 
@@ -215,3 +219,11 @@ Read terminal audit is attempted after the normalized result exists, and failure
 result. Mutations append a durable dispatch intent before the adapter call. A failed intent append
 prevents dispatch; a failed completion append after dispatch returns `mutation_outcome_unknown`.
 See [Audit contract](AUDIT.md) and [Observability](OBSERVABILITY.md).
+
+## Replay lifecycle
+
+Successful CLI executions may opt into a strict replay record. A replay resolves the exact current
+contract and binding, compares the historical definition fingerprint, applies the synthetic-only
+target policy, records an audit intent, and runs current validation and authorization. Dry run
+returns the resulting plan without adapter dispatch. Actual replay gives the policy to the executor
+as a final binding guard immediately before dispatch. See [Safe replay](REPLAY.md).

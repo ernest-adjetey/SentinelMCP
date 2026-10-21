@@ -180,39 +180,40 @@ propagated.
 - Secret-redaction regression suite
 - Exporter outage behavior
 
-## Phase 9: Synthetic tools and fault injection
+## Phase 9: Replay and debugging CLI
 
 **Deliverables**
 
-- Asset catalog, ownership, metadata, notification, and admin mutation endpoints
-- Deterministic fault profiles for status codes, malformed bodies, latency, dropped connections,
-  duplicates, and partial outages
-- Startup guard preventing fault injection in production mode
+- Safe replay record schema and bounded argument reconstruction
+- `sentinel` tools, execute, inspect, replay, eval, and benchmark commands
+- Synthetic-target allowlist, dry-run mode, current reauthorization, and replay audit event
+- Exact-contract drift detection and final binding guard
 
 **Tests**
 
-- Synthetic service contract tests
-- End-to-end classification for every fault profile
-- Fault-plan isolation under concurrent requests
+- Attempts to replay HTTP bindings, mutations, changed contracts, or stale permissions
+- Binding replacement race with proof of zero outbound calls
+- Strict file persistence, corruption, unavailable-store, and command tests
 
-## Phase 10: Replay
+## Phase 10: Official MCP integration
 
 **Deliverables**
 
-- Safe replay record schema and redacted argument reconstruction
-- `sentinel replay` and `sentinel inspect` commands
-- Synthetic-target allowlist, dry-run mode, reauthorization, and replay audit event
+- Official current MCP Python SDK integration
+- Tool discovery and invocation mapped to exact SentinelMCP contracts
+- Stable MCP-to-core error translation without a second execution path
 
 **Tests**
 
-- Attempts to replay to arbitrary endpoints or with stale permissions
-- Deterministic result reproduction
-- Missing/redacted required field behavior
+- SDK transport and protocol conformance
+- Discovery and exact-version invocation
+- Authentication, authorization, validation, and normalized failure parity
 
-## Phase 11: Evaluation framework
+## Phase 11: Fault injection and evaluation framework
 
 **Deliverables**
 
+- Deterministic synthetic fault profiles isolated from production configuration
 - Versioned scenario schema, seeded runner, attribution model, and result artifacts
 - Deterministic baseline dataset covering success and every failure category
 - `sentinel eval run` command and generated report
@@ -223,6 +224,7 @@ propagated.
 - Attribution exclusivity
 - Mutation-safety negative evidence
 - Scenario state isolation
+- Startup refusal for fault injection in production mode
 
 ## Phase 12: Benchmark framework
 
@@ -241,28 +243,13 @@ propagated.
 
 No result enters the README until the full protocol in `BENCHMARKS.md` has run.
 
-## Phase 13: Optional React dashboard
-
-Build only if operator workflows are awkward in the CLI and API. The dashboard may visualize
-registry state, traces, circuit health, and redacted audit records; it must not become a second
-policy or execution implementation.
-
-**Decision gate:** documented usability need, stable API, and no impact on core milestones.
-
-## Phase 14: Test and CI hardening
+## Phase 13: Security, test, and release polish
 
 **Deliverables**
 
+- SSRF-safe outbound target policy and focused adversarial tests
 - Unit, API, integration, concurrency, fault, property, and mutation-safety test suites
-- Coverage policy based on risk, not line count alone
-- GitHub Actions jobs for lint, types, unit/integration tests, migration checks, Docker builds,
-  image scanning, and coverage artifacts
-- Repeated flaky/concurrency test lane
-
-## Phase 15: Documentation and release polish
-
-**Deliverables**
-
+- CI, packaging, dependency, migration, and license verification
 - Deterministic demo of the twelve required reliability scenarios
 - Final diagrams, screenshots, measured benchmark/evaluation results, and operator runbook
 - API reference, configuration reference, release notes, and first tagged pre-release
