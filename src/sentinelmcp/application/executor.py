@@ -187,6 +187,7 @@ class ToolExecutor:
         request: ExecutionRequest,
         *,
         principal: Principal | None = None,
+        binding_guard: Callable[[ToolDefinition, RuntimeToolBinding], bool] | None = None,
     ) -> ExecutionResult:
         """Run one authorized read; mutations require the durable mutation service."""
 
@@ -214,6 +215,33 @@ class ToolExecutor:
                     principal,
                     operation_class,
                 )
+            if binding_guard is not None:
+                try:
+                    binding_allowed = binding_guard(prepared.definition, binding)
+                    if not isinstance(binding_allowed, bool):
+                        raise TypeError("binding guard returned an invalid decision")
+                except Exception:
+                    guard_failure = self._failure(
+                        prepared.context,
+                        ExecutionErrorCode.INTERNAL_EXECUTION_ERROR,
+                    )
+                    return self._complete_execution(
+                        observation,
+                        guard_failure,
+                        principal,
+                        operation_class,
+                    )
+                if not binding_allowed:
+                    guard_rejection = self._failure(
+                        prepared.context,
+                        ExecutionErrorCode.BINDING_NOT_FOUND,
+                    )
+                    return self._complete_execution(
+                        observation,
+                        guard_rejection,
+                        principal,
+                        operation_class,
+                    )
             read_result = await self.dispatch(prepared, binding, observation=observation)
             return self._complete_execution(
                 observation,

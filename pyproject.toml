@@ -39,6 +39,9 @@ dependencies = [
   "sqlalchemy>=2.0,<3",
 ]
 
+[project.scripts]
+sentinel = "sentinelmcp.cli:main"
+
 [project.optional-dependencies]
 dev = [
   "hypothesis>=6.115,<7",

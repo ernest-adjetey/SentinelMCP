@@ -78,7 +78,7 @@ def _math_add_definition() -> ToolDefinition:
             "additionalProperties": False,
         },
         operation_class=OperationClass.READ,
-        capabilities=frozenset({"demo", "math"}),
+        capabilities=frozenset({"demo", "math", "replay-safe"}),
     )
 
 
@@ -113,7 +113,7 @@ def _catalog_lookup_definition() -> ToolDefinition:
             "additionalProperties": False,
         },
         operation_class=OperationClass.READ,
-        capabilities=frozenset({"catalog", "demo"}),
+        capabilities=frozenset({"catalog", "demo", "replay-safe"}),
     )
 
 
@@ -145,7 +145,7 @@ def _profile_get_definition() -> ToolDefinition:
             "additionalProperties": False,
         },
         operation_class=OperationClass.READ,
-        capabilities=frozenset({"demo", "profile"}),
+        capabilities=frozenset({"demo", "profile", "replay-safe"}),
     )
 
 
