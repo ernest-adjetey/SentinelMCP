@@ -321,6 +321,20 @@ or telemetry. Trusted in-memory/stdio composition injects a principal explicitly
 bridges the existing `Authenticator` through the SDK bearer middleware and defaults to stateless
 JSON transport. See [MCP integration](MCP.md).
 
+### Phase 11 evaluation boundary
+
+The packaged scenario catalog is inert JSON. A strict loader rejects duplicate keys, unknown
+fields, invalid enum values, duplicate scenario IDs, and incoherent retry expectations before a run.
+The runner composes a deterministic HTTPX fault transport or an evaluation-only mutation state
+store behind existing adapter and storage protocols. It then invokes `ToolExecutor` or
+`MutationService`; it does not duplicate status normalization, policy, retry, output validation, or
+mutation outcome handling.
+
+Evaluation results contain only normalized error codes, primary attribution, dispatch counts,
+bounded labels, and measured timing. The transport retains method and URL metadata for assertions,
+never request bodies. Neither fault-injection implementation is wired into REST or MCP production
+composition.
+
 At 10x traffic, scale stateless gateway replicas horizontally. PostgreSQL connection pools,
 Redis command volume, audit write throughput, and high-cardinality telemetry are expected
 bottlenecks and must be measured before extraction.

@@ -6,7 +6,7 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 10 are complete. SentinelMCP can durably register exact
+> **Project status:** Phases 1 through 11 are complete. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
 > confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
@@ -96,6 +96,10 @@ See [Architecture](docs/ARCHITECTURE.md) and
   authorization, reliability, audit, and telemetry lifecycle as REST
 - Reversible exact-version MCP names, trusted in-memory/stdio principal injection, authenticated
   Streamable HTTP composition, and PostgreSQL-backed MCP mutation preview/confirmation
+- Versioned deterministic fault scenarios for HTTP status, body, transport, retry, policy,
+  duplicate-mutation, and ambiguous-mutation behavior
+- Machine-readable evaluation artifacts with expected/observed error, attribution, dispatch count,
+  labels, and per-scenario timing
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
@@ -108,11 +112,12 @@ The full behavioral contract and current limits are in
 telemetry, redaction, and failure policies. [Safe replay](docs/REPLAY.md) and the
 [CLI reference](docs/CLI.md) document operator workflows and their security limits.
 [MCP integration](docs/MCP.md) documents discovery, exact-version encoding, transports,
-authentication assumptions, mutation actions, errors, and cancellation.
+authentication assumptions, mutation actions, errors, and cancellation. [Reliability
+evaluation](docs/EVALUATION.md) defines the Phase 11 scenario and attribution contract.
 
 ## Planned capabilities
 
-- Fault injection, reliability evaluation, and reproducible performance benchmarks
+- Reproducible performance benchmarks and profiling
 
 ## CLI quick start
 
@@ -122,6 +127,7 @@ sentinel execute demo.math.add@1.0.0 --arguments '{"a":2,"b":3}' --record
 sentinel inspect RECORD_ID
 sentinel replay RECORD_ID --dry-run
 sentinel replay RECORD_ID
+sentinel eval run --output phase11-evaluation.json
 ```
 
 Replay defaults to the local `.sentinelmcp/replays` directory and only dispatches to explicitly
@@ -199,7 +205,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 8 | Durable audit, OpenTelemetry, Prometheus, Grafana | Complete |
 | 9 | Replay and debugging CLI | Complete |
 | 10 | Official MCP integration | Complete |
-| 11 | Fault injection and reliability evaluation | Planned |
+| 11 | Fault injection and reliability evaluation | Complete |
 | 12 | Performance benchmarking and profiling | Planned |
 | 13 | Release, portfolio, security, and documentation polish | Planned |
 

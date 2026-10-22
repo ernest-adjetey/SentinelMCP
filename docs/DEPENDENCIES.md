@@ -101,6 +101,14 @@ SentinelMCP uses the low-level `Server` boundary so exact registry schemas and a
 remain authoritative. Replacing it would require another conforming implementation of protocol
 negotiation, cancellation, transports, authentication middleware, and schema/result validation.
 
+### Phase 11 dependency choice
+
+Fault injection and evaluation add no runtime dependency. The deterministic transport implements
+HTTPX's existing `AsyncBaseTransport` boundary, scenario files use the Python standard library JSON
+loader with duplicate-key rejection, and report models remain typed dataclasses. The evaluation-only
+mutation store implements the existing `MutationStateStore` protocol and is not exported through a
+gateway composition root.
+
 ## Planned runtime dependencies
 
 Additional runtime packages are added only in the phase that uses them. A supported Redis client

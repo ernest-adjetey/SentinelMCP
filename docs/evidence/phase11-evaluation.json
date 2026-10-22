@@ -1,0 +1,303 @@
+{
+  "attribution_counts": {
+    "INFRASTRUCTURE_ERROR": 11,
+    "MODEL_ERROR": 0,
+    "POLICY_REJECTION": 1,
+    "SUCCESS": 3,
+    "TOOL_ERROR": 8
+  },
+  "elapsed_ms": 78.09,
+  "failed": 0,
+  "generated_at": "2026-10-22T03:45:23.911107Z",
+  "passed": 23,
+  "results": [
+    {
+      "duration_ms": 3.563,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_bad_request",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_bad_request",
+      "passed": true,
+      "scenario_id": "http-400"
+    },
+    {
+      "duration_ms": 3.492,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_authentication_failed",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_authentication_failed",
+      "passed": true,
+      "scenario_id": "http-401"
+    },
+    {
+      "duration_ms": 3.625,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_authorization_failed",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_authorization_failed",
+      "passed": true,
+      "scenario_id": "http-403"
+    },
+    {
+      "duration_ms": 2.903,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_not_found",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_not_found",
+      "passed": true,
+      "scenario_id": "http-404"
+    },
+    {
+      "duration_ms": 3.032,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_conflict",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_conflict",
+      "passed": true,
+      "scenario_id": "http-409"
+    },
+    {
+      "duration_ms": 3.046,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_rate_limited",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_rate_limited",
+      "passed": true,
+      "scenario_id": "http-429"
+    },
+    {
+      "duration_ms": 3.908,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_server_error",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_server_error",
+      "passed": true,
+      "scenario_id": "http-500"
+    },
+    {
+      "duration_ms": 2.969,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_unavailable",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_unavailable",
+      "passed": true,
+      "scenario_id": "http-502"
+    },
+    {
+      "duration_ms": 2.611,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_unavailable",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_unavailable",
+      "passed": true,
+      "scenario_id": "http-503"
+    },
+    {
+      "duration_ms": 2.937,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_timeout",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_timeout",
+      "passed": true,
+      "scenario_id": "http-504"
+    },
+    {
+      "duration_ms": 2.732,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_malformed_response",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_malformed_response",
+      "passed": true,
+      "scenario_id": "malformed-json"
+    },
+    {
+      "duration_ms": 2.768,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_invalid_content_type",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_invalid_content_type",
+      "passed": true,
+      "scenario_id": "wrong-content-type"
+    },
+    {
+      "duration_ms": 3.098,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_malformed_response",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_malformed_response",
+      "passed": true,
+      "scenario_id": "invalid-utf8"
+    },
+    {
+      "duration_ms": 3.002,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_response_too_large",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_response_too_large",
+      "passed": true,
+      "scenario_id": "oversized-response"
+    },
+    {
+      "duration_ms": 2.865,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_timeout",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_timeout",
+      "passed": true,
+      "scenario_id": "timeout"
+    },
+    {
+      "duration_ms": 7.367,
+      "expected_attribution": "SUCCESS",
+      "expected_dispatches": 1,
+      "expected_error": null,
+      "labels": [
+        "slow_response"
+      ],
+      "observed_attribution": "SUCCESS",
+      "observed_dispatches": 1,
+      "observed_error": null,
+      "passed": true,
+      "scenario_id": "slow-response"
+    },
+    {
+      "duration_ms": 2.732,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_unavailable",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_unavailable",
+      "passed": true,
+      "scenario_id": "connection-failure"
+    },
+    {
+      "duration_ms": 2.67,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "upstream_unavailable",
+      "labels": [],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "upstream_unavailable",
+      "passed": true,
+      "scenario_id": "connection-drop"
+    },
+    {
+      "duration_ms": 3.247,
+      "expected_attribution": "SUCCESS",
+      "expected_dispatches": 2,
+      "expected_error": null,
+      "labels": [
+        "retry_recovered"
+      ],
+      "observed_attribution": "SUCCESS",
+      "observed_dispatches": 2,
+      "observed_error": null,
+      "passed": true,
+      "scenario_id": "intermittent-outage"
+    },
+    {
+      "duration_ms": 3.358,
+      "expected_attribution": "TOOL_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "output_validation_failed",
+      "labels": [],
+      "observed_attribution": "TOOL_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "output_validation_failed",
+      "passed": true,
+      "scenario_id": "output-schema-violation"
+    },
+    {
+      "duration_ms": 2.475,
+      "expected_attribution": "POLICY_REJECTION",
+      "expected_dispatches": 0,
+      "expected_error": "authorization_failed",
+      "labels": [],
+      "observed_attribution": "POLICY_REJECTION",
+      "observed_dispatches": 0,
+      "observed_error": "authorization_failed",
+      "passed": true,
+      "scenario_id": "policy-rejection"
+    },
+    {
+      "duration_ms": 5.436,
+      "expected_attribution": "SUCCESS",
+      "expected_dispatches": 1,
+      "expected_error": null,
+      "labels": [
+        "duplicate_reused"
+      ],
+      "observed_attribution": "SUCCESS",
+      "observed_dispatches": 1,
+      "observed_error": null,
+      "passed": true,
+      "scenario_id": "duplicate-request"
+    },
+    {
+      "duration_ms": 4.047,
+      "expected_attribution": "INFRASTRUCTURE_ERROR",
+      "expected_dispatches": 1,
+      "expected_error": "mutation_outcome_unknown",
+      "labels": [
+        "outcome_ambiguous"
+      ],
+      "observed_attribution": "INFRASTRUCTURE_ERROR",
+      "observed_dispatches": 1,
+      "observed_error": "mutation_outcome_unknown",
+      "passed": true,
+      "scenario_id": "mutation-ambiguity"
+    }
+  ],
+  "scenario_count": 23,
+  "schema_version": "1.0",
+  "suite_id": "phase11-fault-injection",
+  "suite_version": "1.0.0"
+}

@@ -22,3 +22,8 @@ Phase 10 adds `mcp/` end-to-end tests using the official SDK's in-memory `Client
 Read cases cover exact-version discovery/routing, authorization, validation, normalized errors,
 cancellation, audit, metrics, and tracing. Mutation cases use real PostgreSQL to exercise the same
 durable preview, confirmation, idempotency, concurrency, and unknown-outcome service as REST.
+
+Phase 11 adds `evaluation/` tests for every packaged fault scenario and model/catalog validation.
+The unit lane covers deterministic HTTP response/exception plans and evaluation-only mutation-state
+transitions. These fixtures call the production executor and mutation service, but the in-memory
+fault transports and mutation store are never composed into the production gateway.

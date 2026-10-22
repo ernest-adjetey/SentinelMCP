@@ -51,12 +51,16 @@ allow it. See [Safe replay](REPLAY.md).
 ## Evaluation and benchmark entry points
 
 ```bash
-sentinel eval run
+sentinel eval run --output phase11-evaluation.json
 sentinel benchmark run --iterations 100
 ```
 
-The Phase 9 evaluation command runs three deterministic success-path demo requests and reports
-their normalized outcomes. It is a smoke check, not the Phase 11 reliability evaluation corpus.
+The Phase 11 evaluation command loads the packaged, versioned fault catalog and invokes the real
+executor, HTTP adapter, authorization policy, retry controls, and mutation service. Standard output
+contains the full JSON report. `--output PATH` additionally writes the evaluation object as
+indented machine-readable JSON. It contains no raw upstream bodies, arguments, confirmation tokens,
+or idempotency keys. A run returns exit status `1` when any observed outcome differs from the
+catalog expectation while still emitting the complete report.
 
 The Phase 9 benchmark command performs a short sequential measurement of the in-process synthetic
 executor path after a warmup and reports throughput, p50/p95/p99 latency, and error rate.
