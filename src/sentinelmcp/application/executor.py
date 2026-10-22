@@ -98,6 +98,9 @@ _SAFE_MESSAGES: dict[ExecutionErrorCode, str] = {
     ExecutionErrorCode.AUDIT_UNAVAILABLE: "Required durable audit state is unavailable.",
     ExecutionErrorCode.BINDING_NOT_FOUND: "The exact tool version has no runtime binding.",
     ExecutionErrorCode.ADAPTER_FAILURE: "The tool adapter could not complete the invocation.",
+    ExecutionErrorCode.OUTBOUND_TARGET_REJECTED: (
+        "The configured outbound tool target was rejected by network policy."
+    ),
     ExecutionErrorCode.UPSTREAM_BAD_REQUEST: "The upstream tool rejected the request.",
     ExecutionErrorCode.UPSTREAM_AUTHENTICATION_FAILED: (
         "The upstream tool rejected SentinelMCP authentication."

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -89,6 +90,27 @@ def get(app: FastAPI, path: str) -> httpx.Response:
             base_url="http://sentinelmcp.test",
         ) as client:
             return await client.get(path)
+
+    return asyncio.run(send())
+
+
+def post_content(
+    app: FastAPI,
+    content: bytes | httpx.AsyncByteStream,
+    *,
+    headers: list[tuple[str, str]] | None = None,
+) -> httpx.Response:
+    async def send() -> httpx.Response:
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://sentinelmcp.test",
+        ) as client:
+            return await client.post(
+                "/v1/execute",
+                content=content,
+                headers=headers,
+            )
 
     return asyncio.run(send())
 
@@ -208,6 +230,37 @@ def test_gateway_generated_request_ids_are_not_caller_controlled() -> None:
     assert response.json()["request_id"] != attempted_id
 
 
+def test_gateway_rejects_declared_and_streamed_oversized_request_bodies() -> None:
+    runtime = create_demo_runtime()
+    app = create_execution_app(runtime.executor, TEST_AUTHENTICATOR, max_request_bytes=16)
+    secret = b"private-request-body"
+
+    class ChunkedBody(httpx.AsyncByteStream):
+        async def __aiter__(self) -> AsyncIterator[bytes]:
+            yield b"1234567890"
+            yield secret
+
+    declared = post_content(app, secret)
+    streamed = post_content(app, ChunkedBody())
+
+    for response in (declared, streamed):
+        assert response.status_code == 413
+        assert response.json()["error"]["code"] == "invalid_request"
+        assert "private-request-body" not in response.text
+
+
+@pytest.mark.parametrize("maximum", [0, 10_000_001, True, 1.5])
+def test_gateway_rejects_invalid_request_body_limits(maximum: object) -> None:
+    runtime = create_demo_runtime()
+
+    with pytest.raises(ValueError, match="max_request_bytes"):
+        create_execution_app(
+            runtime.executor,
+            TEST_AUTHENTICATOR,
+            max_request_bytes=maximum,  # type: ignore[arg-type]
+        )
+
+
 def test_demo_gateway_module_exposes_runnable_fastapi_app() -> None:
     response = post(demo_app, payload(arguments={"a": 1, "b": 4}))
 
@@ -226,6 +279,7 @@ def test_demo_gateway_module_exposes_runnable_fastapi_app() -> None:
         (ExecutionErrorCode.DEADLINE_EXCEEDED, 504, None, None),
         (ExecutionErrorCode.UPSTREAM_TIMEOUT, 504, None, None),
         (ExecutionErrorCode.ADAPTER_FAILURE, 502, None, None),
+        (ExecutionErrorCode.OUTBOUND_TARGET_REJECTED, 502, None, None),
         (ExecutionErrorCode.UPSTREAM_AUTHENTICATION_FAILED, 502, 401, None),
         (ExecutionErrorCode.INTERNAL_EXECUTION_ERROR, 500, None, None),
     ],

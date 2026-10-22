@@ -161,6 +161,7 @@ class ExecutionErrorCode(StrEnum):
     AUDIT_UNAVAILABLE = "audit_unavailable"
     BINDING_NOT_FOUND = "binding_not_found"
     ADAPTER_FAILURE = "adapter_failure"
+    OUTBOUND_TARGET_REJECTED = "outbound_target_rejected"
     UPSTREAM_BAD_REQUEST = "upstream_bad_request"
     UPSTREAM_AUTHENTICATION_FAILED = "upstream_authentication_failed"
     UPSTREAM_AUTHORIZATION_FAILED = "upstream_authorization_failed"

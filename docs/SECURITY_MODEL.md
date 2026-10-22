@@ -119,12 +119,22 @@ provider, signing-key store, or transport is secure.
   managed.
 - The principal has no delegated agent identity or tenant model.
 - TLS termination and trusted signing-key delivery are deployment concerns.
-- The REST adapter does not yet impose a raw request-body byte limit.
+- REST request bodies default to a 1,048,576-byte limit, enforced against both declared
+  `Content-Length` and streamed bytes before framework JSON decoding. Deployments still need
+  front-proxy connection, header, and aggregate-rate limits.
 - MCP protocol and session identities are not treated as authenticated Sentinel principals.
   Trusted in-memory/stdio callers require explicit principal injection; Streamable HTTP uses the
   existing `Authenticator` through official SDK bearer middleware; unconfigured MCP denies all.
-- Mutation confirmation, durable audit, local reliability controls, and constrained replay are
-  implemented. A defensible outbound endpoint policy remains future work.
+- Outbound HTTP requires HTTPS by default, optionally requires an exact normalized host allowlist,
+  rejects any resolution containing a non-global or IPv4-transition address, and pins the request
+  URL to one approved address while preserving the original Host header and TLS SNI. Redirects
+  remain disabled. Explicit trusted-development configuration can permit plaintext or non-global
+  targets; production compositions must not enable those exceptions.
+- Direct connections are protected from DNS rebinding by IP pinning. A deployment-supplied proxy
+  is an additional trust boundary and must enforce equivalent destination policy; proxy behavior
+  is outside SentinelMCP's direct socket control.
+- Mutation confirmation, durable audit, local reliability controls, constrained replay, bounded
+  ingress bodies, and outbound target controls are implemented.
 
 See [Threat model](THREAT_MODEL.md) for broader system threats and
 [ADR 0007](adr/0007-signed-jwt-and-exact-policy.md) for the decision rationale. MCP-specific

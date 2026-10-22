@@ -45,6 +45,7 @@ from sentinelmcp.execution import (
     InMemoryCircuitBreaker,
     InMemoryRateLimiter,
     InMemoryRuntimeBindingRegistry,
+    OutboundHTTPPolicy,
     ReliabilityControls,
     RuntimeToolBinding,
     TokenBucketConfig,
@@ -62,6 +63,10 @@ from sentinelmcp.registry import InMemoryToolRegistry
 from sentinelmcp.telemetry import OpenTelemetryExecutionObservability, PrometheusMetrics
 
 PRINCIPAL = Principal("mcp-test", "https://issuer.test", scopes=frozenset({"tools:read"}))
+
+
+async def resolve_public_test_host(_host: str, _port: int) -> tuple[str, ...]:
+    return ("93.184.216.34",)
 
 
 class RecordingAdapter:
@@ -726,6 +731,7 @@ def test_actual_http_adapter_failures_remain_safe_through_mcp(
                     HTTPToolAdapter(
                         http_client,
                         HTTPToolTarget("https://tools.example.test/release"),
+                        policy=OutboundHTTPPolicy(resolver=resolve_public_test_host),
                     ),
                 )
             )

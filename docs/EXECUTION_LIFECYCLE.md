@@ -115,6 +115,12 @@ without exception representations or stack traces in the public result.
 
 ## HTTP normalization
 
+Before opening a direct connection, the default outbound policy requires HTTPS, applies an
+optional exact host allowlist, resolves at most 32 addresses, and rejects the whole target if any
+answer is non-global or an IPv4-transition address. The adapter pins the connection URL to one
+approved address while preserving the original Host header and TLS SNI. Redirects are disabled.
+Plain HTTP and non-global addresses require explicit trusted-development opt-outs.
+
 The HTTP adapter processes responses in this order:
 
 1. classify connection or timeout failure;
@@ -143,7 +149,7 @@ optional upstream status, and optional schema issues. Implemented categories are
   `input_validation_failed`, `authorization_failed`, `mutation_not_supported`,
   `mutation_confirmation_invalid`, `idempotency_conflict`, `idempotency_in_progress`,
   `mutation_state_unavailable`, `mutation_outcome_unknown`, `binding_not_found`;
-- adapter and status: `adapter_failure`, `upstream_bad_request`,
+- adapter and status: `adapter_failure`, `outbound_target_rejected`, `upstream_bad_request`,
   `upstream_authentication_failed`, `upstream_authorization_failed`, `upstream_not_found`,
   `upstream_conflict`, `upstream_rate_limited`, `upstream_status_error`,
   `upstream_server_error`, `upstream_unavailable`, `upstream_timeout`;
@@ -172,6 +178,10 @@ bindings and upstream unavailability use 503; upstream timeout uses 504; interna
 mapping, not the internal error taxonomy.
 
 The runnable demo ASGI app is `sentinelmcp.adapters.rest.demo:app`.
+
+The REST boundary enforces a 1,048,576-byte request-body limit by default before JSON decoding.
+Both declared `Content-Length` and streamed bytes are checked; invalid lengths receive 400 and
+over-limit bodies receive 413. The limit is configurable from 1 through 10,000,000 bytes.
 
 ## Synthetic tools
 

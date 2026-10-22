@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, final
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from sentinelmcp.application import MutationService, ToolExecutor
 from sentinelmcp.domain import (
@@ -29,6 +30,8 @@ from sentinelmcp.execution import (
 from sentinelmcp.mutation_guard import MutationPreview
 from sentinelmcp.policy import AuthenticationError, Authenticator, Principal
 from sentinelmcp.telemetry import GatewayObservability, GatewayRoute, PrometheusMetrics
+
+DEFAULT_MAX_REQUEST_BYTES = 1_048_576
 
 
 class ToolReferencePayload(BaseModel):
@@ -57,6 +60,100 @@ class ConfirmMutationPayload(ExecutePayload):
     idempotency_key: str
 
 
+@final
+class RequestBodyLimitMiddleware:
+    """Buffer at most one bounded HTTP request body before framework decoding."""
+
+    __slots__ = ("_app", "_maximum_bytes")
+
+    def __init__(self, app: ASGIApp, maximum_bytes: int) -> None:
+        self._app = app
+        self._maximum_bytes = maximum_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+        try:
+            declared_length = _content_length(scope)
+        except ValueError:
+            await _request_body_error(
+                400, "Request Content-Length is invalid.", scope, receive, send
+            )
+            return
+        if declared_length is not None and declared_length > self._maximum_bytes:
+            await _request_body_error(
+                413,
+                "Request body exceeds the configured limit.",
+                scope,
+                receive,
+                send,
+            )
+            return
+
+        body = bytearray()
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            if message["type"] != "http.request":
+                continue
+            chunk = message.get("body", b"")
+            if len(body) + len(chunk) > self._maximum_bytes:
+                await _request_body_error(
+                    413,
+                    "Request body exceeds the configured limit.",
+                    scope,
+                    receive,
+                    send,
+                )
+                return
+            body.extend(chunk)
+            if not message.get("more_body", False):
+                break
+
+        replayed = False
+
+        async def replay_receive() -> Message:
+            nonlocal replayed
+            if not replayed:
+                replayed = True
+                return {"type": "http.request", "body": bytes(body), "more_body": False}
+            return await receive()
+
+        await self._app(scope, replay_receive, send)
+
+
+def _content_length(scope: Scope) -> int | None:
+    values = [value for name, value in scope["headers"] if name.lower() == b"content-length"]
+    if not values:
+        return None
+    if len(values) != 1:
+        raise ValueError("multiple Content-Length headers")
+    try:
+        length = int(values[0].decode("ascii"))
+    except (UnicodeDecodeError, ValueError) as error:
+        raise ValueError("invalid Content-Length") from error
+    if length < 0:
+        raise ValueError("invalid Content-Length")
+    return length
+
+
+async def _request_body_error(
+    status_code: int,
+    message: str,
+    scope: Scope,
+    receive: Receive,
+    send: Send,
+) -> None:
+    response = _gateway_error_response(
+        status_code=status_code,
+        code=ExecutionErrorCode.INVALID_REQUEST,
+        message=message,
+    )
+    await response(scope, receive, send)
+
+
 def create_execution_app(
     executor: ToolExecutor,
     authenticator: Authenticator,
@@ -64,10 +161,18 @@ def create_execution_app(
     *,
     gateway_observability: GatewayObservability | None = None,
     metrics: PrometheusMetrics | None = None,
+    max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
 ) -> FastAPI:
     """Create a gateway around an already-composed core executor."""
 
+    if (
+        isinstance(max_request_bytes, bool)
+        or not isinstance(max_request_bytes, int)
+        or not 1 <= max_request_bytes <= 10_000_000
+    ):
+        raise ValueError("max_request_bytes must be between 1 and 10,000,000")
     app = FastAPI(title="SentinelMCP", version="0.1.0a0")
+    app.add_middleware(RequestBodyLimitMiddleware, maximum_bytes=max_request_bytes)
     gateway = GatewayObservability() if gateway_observability is None else gateway_observability
 
     @app.exception_handler(RequestValidationError)

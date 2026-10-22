@@ -66,8 +66,11 @@ See [Architecture](docs/ARCHITECTURE.md) and
 - Immutable execution requests, contexts, structured successes, and structured failures
 - Exact-version runtime bindings kept separate from semantic tool definitions
 - Deterministic synthetic tools and a single-attempt bounded HTTP adapter
+- HTTPS-by-default outbound policy with exact host allowlists, public-address enforcement,
+  all-answer DNS validation, redirect refusal, and per-request IP pinning with preserved TLS SNI
 - Status-first upstream classification, safe JSON decoding, and output-schema enforcement
 - Minimal `POST /v1/execute` FastAPI gateway with stable success and error envelopes
+- Declared and streamed REST request-body limits enforced before JSON decoding
 - Bounded signed-JWT verification with explicit key IDs, algorithm allowlist, issuer,
   audience, signature, and time validation
 - Immutable normalized principals and required default-deny authorization before dispatch

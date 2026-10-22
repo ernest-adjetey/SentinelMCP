@@ -9,8 +9,11 @@ from sentinelmcp.execution.bindings import (
 from sentinelmcp.execution.http import (
     DEFAULT_MAX_RESPONSE_BYTES,
     DEFAULT_TIMEOUT_SECONDS,
+    HostResolver,
     HTTPToolAdapter,
     HTTPToolTarget,
+    OutboundHTTPPolicy,
+    OutboundTargetRejectedError,
 )
 from sentinelmcp.execution.models import (
     AdapterFailure,
@@ -82,12 +85,15 @@ __all__ = [
     "ExecutionSuccess",
     "HTTPToolAdapter",
     "HTTPToolTarget",
+    "HostResolver",
     "InMemoryCircuitBreaker",
     "InMemoryRateLimiter",
     "InMemoryRetryBudget",
     "InMemoryRuntimeBindingRegistry",
     "InvalidExecutionRequestError",
     "NoOpCircuitBreaker",
+    "OutboundHTTPPolicy",
+    "OutboundTargetRejectedError",
     "RateLimitKey",
     "RateLimiter",
     "ReliabilityControls",

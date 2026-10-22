@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import ipaddress
 import json
 import math
-from dataclasses import dataclass
+import re
+import socket
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
 from typing import cast, final
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -21,10 +26,49 @@ from sentinelmcp.execution.models import (
 
 DEFAULT_MAX_RESPONSE_BYTES = 1_048_576
 DEFAULT_TIMEOUT_SECONDS = 10.0
+MAX_RESOLVED_ADDRESSES = 32
+
+type IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+type HostResolver = Callable[[str, int], Awaitable[Sequence[str]]]
+
+_HOST_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 
 class _DuplicateJSONKeyError(ValueError):
     pass
+
+
+class OutboundTargetRejectedError(ValueError):
+    """An outbound target failed the configured network boundary."""
+
+
+async def _system_resolver(host: str, port: int) -> Sequence[str]:
+    infos = await asyncio.get_running_loop().getaddrinfo(
+        host,
+        port,
+        family=socket.AF_UNSPEC,
+        type=socket.SOCK_STREAM,
+        proto=socket.IPPROTO_TCP,
+    )
+    return tuple(str(info[4][0]) for info in infos)
+
+
+def _normalize_hostname(host: str) -> str:
+    candidate = host.rstrip(".")
+    if not candidate:
+        raise ValueError("url host must not be empty")
+    try:
+        return ipaddress.ip_address(candidate).compressed
+    except ValueError:
+        pass
+    try:
+        normalized = candidate.encode("idna").decode("ascii").casefold()
+    except UnicodeError as error:
+        raise ValueError("url host must be a valid DNS name or IP address") from error
+    labels = normalized.split(".")
+    if len(normalized) > 253 or any(not _HOST_LABEL.fullmatch(label) for label in labels):
+        raise ValueError("url host must be a valid DNS name or IP address")
+    return normalized
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,8 +78,14 @@ class HTTPToolTarget:
     url: str
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     max_response_bytes: int = DEFAULT_MAX_RESPONSE_BYTES
+    _scheme: str = field(init=False, repr=False, compare=False)
+    _host: str = field(init=False, repr=False, compare=False)
+    _port: int = field(init=False, repr=False, compare=False)
+    _explicit_port: bool = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.url, str):
+            raise TypeError("url must be a string")
         parsed = urlsplit(self.url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("url must be an absolute HTTP(S) URL")
@@ -43,33 +93,170 @@ class HTTPToolTarget:
             raise ValueError("url must not contain embedded credentials")
         if parsed.fragment:
             raise ValueError("url must not contain a fragment")
-        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+        if parsed.hostname is None:
+            raise ValueError("url must contain a host")
+        try:
+            explicit_port = parsed.port
+        except ValueError as error:
+            raise ValueError("url must contain a valid port") from error
+        object.__setattr__(self, "_scheme", parsed.scheme)
+        object.__setattr__(self, "_host", _normalize_hostname(parsed.hostname))
+        object.__setattr__(
+            self,
+            "_port",
+            explicit_port
+            if explicit_port is not None
+            else (443 if parsed.scheme == "https" else 80),
+        )
+        object.__setattr__(self, "_explicit_port", explicit_port is not None)
+        timeout_seconds: object = self.timeout_seconds
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, int | float)
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
             raise ValueError("timeout_seconds must be finite and positive")
         if (
             isinstance(self.max_response_bytes, bool)
+            or not isinstance(self.max_response_bytes, int)
             or not 1 <= self.max_response_bytes <= 10_000_000
         ):
             raise ValueError("max_response_bytes must be between 1 and 10,000,000")
+
+    @property
+    def scheme(self) -> str:
+        return self._scheme
+
+    @property
+    def host(self) -> str:
+        return self._host
+
+    @property
+    def port(self) -> int:
+        return self._port
+
+
+@dataclass(frozen=True, slots=True)
+class _ApprovedHTTPDestination:
+    url: str
+    host_header: str
+    sni_hostname: str
+
+
+@final
+@dataclass(frozen=True, slots=True)
+class OutboundHTTPPolicy:
+    """Resolve, validate, and pin one outbound HTTP destination per invocation."""
+
+    allowed_hosts: frozenset[str] | None = None
+    require_https: bool = True
+    allow_non_global_addresses: bool = False
+    resolver: HostResolver = field(default=_system_resolver, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.require_https, bool):
+            raise TypeError("require_https must be a boolean")
+        if not isinstance(self.allow_non_global_addresses, bool):
+            raise TypeError("allow_non_global_addresses must be a boolean")
+        if not callable(self.resolver):
+            raise TypeError("resolver must be callable")
+        if self.allowed_hosts is not None:
+            if not isinstance(self.allowed_hosts, frozenset):
+                raise TypeError("allowed_hosts must be a frozenset or None")
+            if any(not isinstance(host, str) for host in self.allowed_hosts):
+                raise TypeError("allowed_hosts entries must be strings")
+            object.__setattr__(
+                self,
+                "allowed_hosts",
+                frozenset(_normalize_hostname(host) for host in self.allowed_hosts),
+            )
+
+    async def authorize(self, target: HTTPToolTarget) -> _ApprovedHTTPDestination:
+        """Return a pinned destination or reject without opening a connection."""
+
+        if self.require_https and target.scheme != "https":
+            raise OutboundTargetRejectedError("unencrypted outbound HTTP is disabled")
+        if self.allowed_hosts is not None and target.host not in self.allowed_hosts:
+            raise OutboundTargetRejectedError("target host is not allowlisted")
+
+        try:
+            literal = ipaddress.ip_address(target.host)
+        except ValueError:
+            try:
+                raw_addresses = await self.resolver(target.host, target.port)
+            except Exception as error:
+                raise OutboundTargetRejectedError("target resolution failed") from error
+        else:
+            raw_addresses = (literal.compressed,)
+
+        if not raw_addresses or len(raw_addresses) > MAX_RESOLVED_ADDRESSES:
+            raise OutboundTargetRejectedError("target resolution returned an invalid result")
+        if any(not isinstance(value, str) for value in raw_addresses):
+            raise OutboundTargetRejectedError("target resolution returned an invalid address")
+        try:
+            addresses = frozenset(ipaddress.ip_address(value) for value in raw_addresses)
+        except ValueError as error:
+            raise OutboundTargetRejectedError(
+                "target resolution returned an invalid address"
+            ) from error
+        if not self.allow_non_global_addresses and any(
+            not _is_public_address(address) for address in addresses
+        ):
+            raise OutboundTargetRejectedError("target resolved to a non-public address")
+
+        selected = min(addresses, key=lambda address: (address.version, int(address)))
+        pinned_host = f"[{selected.compressed}]" if selected.version == 6 else selected.compressed
+        pinned_netloc = f"{pinned_host}:{target.port}" if target._explicit_port else pinned_host
+        parsed = urlsplit(target.url)
+        pinned_url = urlunsplit((target.scheme, pinned_netloc, parsed.path, parsed.query, ""))
+        original_host = f"[{target.host}]" if ":" in target.host else target.host
+        host_header = f"{original_host}:{target.port}" if target._explicit_port else original_host
+        return _ApprovedHTTPDestination(pinned_url, host_header, target.host)
+
+
+def _is_public_address(address: IPAddress) -> bool:
+    if not address.is_global:
+        return False
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None or address.sixtofour is not None:
+            return False
+        if address.teredo is not None:
+            return False
+    return True
 
 
 @final
 class HTTPToolAdapter:
     """POST JSON once and normalize transport, status, media, and body failures."""
 
-    __slots__ = ("_client", "_target")
+    __slots__ = ("_client", "_policy", "_target")
 
-    def __init__(self, client: httpx.AsyncClient, target: HTTPToolTarget) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        target: HTTPToolTarget,
+        *,
+        policy: OutboundHTTPPolicy | None = None,
+    ) -> None:
         self._client = client
         self._target = target
+        self._policy = policy or OutboundHTTPPolicy()
 
     async def execute(self, invocation: AdapterInvocation) -> AdapterResult:
         try:
+            destination = await self._policy.authorize(self._target)
+        except OutboundTargetRejectedError:
+            return AdapterFailure(ExecutionErrorCode.OUTBOUND_TARGET_REJECTED)
+        try:
             async with self._client.stream(
                 "POST",
-                self._target.url,
+                destination.url,
                 json=thaw_json(invocation.arguments),
+                headers={"host": destination.host_header},
                 timeout=self._target.timeout_seconds,
                 follow_redirects=False,
+                extensions={"sni_hostname": destination.sni_hostname},
             ) as response:
                 status = response.status_code
                 if not 200 <= status < 300:

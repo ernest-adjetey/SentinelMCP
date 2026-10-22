@@ -37,6 +37,7 @@ from sentinelmcp.execution import (
     HTTPToolAdapter,
     HTTPToolTarget,
     InMemoryRuntimeBindingRegistry,
+    OutboundHTTPPolicy,
     ReliabilityControls,
     RuntimeToolBinding,
 )
@@ -57,6 +58,12 @@ from sentinelmcp.registry import InMemoryToolRegistry
 
 _HTTP_URL = "https://faults.example.test/invoke"
 _HTTP_MAX_RESPONSE_BYTES = 64
+
+
+async def _resolve_evaluation_host(host: str, port: int) -> tuple[str, ...]:
+    if host != "faults.example.test" or port != 443:
+        raise OSError("unexpected deterministic evaluation target")
+    return ("93.184.216.34",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +163,7 @@ async def _run_http_scenario(
                         _HTTP_URL,
                         max_response_bytes=_HTTP_MAX_RESPONSE_BYTES,
                     ),
+                    policy=OutboundHTTPPolicy(resolver=_resolve_evaluation_host),
                 ),
             )
         )

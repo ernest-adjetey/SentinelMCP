@@ -52,9 +52,10 @@ These are target invariants for the first production-capable release, not a clai
 control is implemented. Phase 5 implements signed-JWT authentication and default-deny
 authorization for execution, Phase 6 implements durable mutation confirmation and local
 idempotency arbitration, Phase 7 implements optional process-local reliability controls, Phase 8
-implements durable audit and bounded telemetry, and Phase 9 implements constrained synthetic
-replay. Outbound HTTP target controls remain incomplete, and rate controls are not cross-replica,
-so the project is not production-safe.
+implements durable audit and bounded telemetry, Phase 9 implements constrained synthetic replay,
+and Phase 13 implements bounded REST ingress plus an SSRF-resistant direct outbound HTTP policy.
+Rate controls remain process-local rather than cross-replica, so the project is not presented as
+production-ready.
 
 1. No tool executes before authentication, schema validation, and authorization succeed.
 2. A sensitive mutation executes only after a matching, unexpired, single-use confirmation is
@@ -85,15 +86,35 @@ so the project is not production-safe.
 - Arguments are detached and schema-validated before binding resolution or adapter dispatch.
 - Ordinary executor calls reject mutations so no unguarded local path reaches an adapter.
 - Runtime targets are separate from immutable contracts. HTTP target URLs reject embedded
-  credentials and fragments, and redirects are not followed.
+  credentials and fragments, and redirects are not followed. Phase 13 additionally requires HTTPS
+  by default, supports an exact normalized host allowlist, validates every DNS answer, rejects
+  non-global and IPv4-transition addresses, and pins direct requests to an approved address while
+  preserving the original Host header and TLS SNI.
 - Non-success HTTP status is classified before content-type or JSON parsing. Successful bodies
   require a supported UTF-8 JSON media type, bounded bytes, unique object keys, and valid JSON.
 - Successful adapter output is detached and validated against the exact registered output schema.
 - Public errors contain no raw bodies, exception text, credentials, or stack traces.
 
-The HTTP adapter does not yet enforce endpoint allowlists, DNS/IP restrictions, credential
-injection, or administrative binding authorization. Runtime target configuration must remain
-trusted until those controls exist.
+Runtime target configuration and any explicit opt-out permitting plaintext or non-global
+addresses remain trusted administrative concerns. Per-tool credential injection and
+administrative binding authorization are not implemented. Deployment-supplied HTTP proxies must
+enforce equivalent destination policy because their routing is outside the direct socket boundary.
+
+## Phase 13 implemented controls
+
+- REST ingress buffers no more than the configured request-body limit before JSON decoding and
+  rejects oversized declared or chunked bodies without reflecting payload data.
+- Outbound URLs permit only absolute HTTP(S), reject embedded credentials and fragments, and use
+  HTTPS by default.
+- Optional host allowlists are exact after IDNA/case/trailing-dot normalization; wildcards are not
+  accepted.
+- Every DNS answer must be a bounded, syntactically valid global address. Loopback, private,
+  link-local, unspecified, multicast, reserved, IPv4-mapped IPv6, 6to4, and Teredo targets fail
+  closed.
+- A selected approved address is placed in the actual connection URL, while the original hostname
+  remains the HTTP Host header and TLS SNI. This removes the direct DNS resolution/use race.
+- Resolver failure, mixed public/private answers, excessive answer sets, unsafe schemes, and policy
+  mismatches return the payload-free `outbound_target_rejected` failure without dispatch.
 
 ## Phase 5 implemented controls
 
@@ -189,8 +210,8 @@ non-sensitive synthetic arguments are supported by the default workflow.
 | Forged identity | Implemented bounded signature, issuer, audience, time, key-ID, and algorithm validation; caller identity comes only from verified claims | Identity-provider and signing-key compromise remain external; revocation is absent |
 | Confused deputy | Implemented exact tool/operation authorization from normalized roles and scopes; model text is never a role | Delegated-agent and tenant models are not implemented |
 | Argument injection | Pydantic and JSON Schema validation; reject unknown fields by default; length and depth limits | A valid but harmful argument still needs policy |
-| SSRF through tool registration | Administrative registration permission; endpoint allowlist; reject loopback, link-local, metadata, and unsafe redirects | DNS rebinding requires resolution-time checks |
-| Schema or payload denial of service | Request/body limits; schema complexity limits; bounded JSON depth; execution deadlines | CPU exhaustion needs load tests |
+| SSRF through tool registration | Implemented HTTPS default, optional exact host allowlist, all-answer DNS/IP validation, redirect refusal, and direct IP pinning | Explicit internal-network opt-out and deployment-supplied proxies remain administrative trust boundaries |
+| Schema or payload denial of service | Implemented raw request/response limits, schema complexity limits, bounded JSON depth, and execution deadlines | Aggregate CPU and connection exhaustion still need deployment limits and load tests |
 | Confirmation theft or replay | Store token hashes only; exact-request binding; short expiry; atomic one-time consume | A stolen live token can be used by the bound identity until expiry |
 | Preview/execute mismatch | Immutable tool version plus canonical argument and policy digest | Canonicalization requires cross-version test vectors |
 | Duplicate mutation | Unique idempotency scope and digest; upstream key propagation when supported | Unknown outcome remains possible without upstream support |
