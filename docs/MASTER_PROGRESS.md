@@ -18,8 +18,9 @@ diff. Update it after every significant milestone and commit.
 - **Completed Phase 11 implementation HEAD:** `03a2d70` (`main`, Add deterministic fault
   evaluation); documentation and measured artifact are in `54ade21`
 - **Completed Phase 12 implementation HEAD:** `d5e0c67` (`main`, Add reproducible benchmark
-  harness); profile-guided schema-validator optimization is in `03b3ca0`
-- **Uncommitted work:** Phase 12 documentation and committed benchmark evidence
+  harness); profile-guided schema-validator optimization is in `03b3ca0`; documentation and
+  committed benchmark evidence are in `045c52f`
+- **Uncommitted work:** This Phase 12 checkpoint transition only
 - **Staged work:** None
 - **Remote:** None configured
 
