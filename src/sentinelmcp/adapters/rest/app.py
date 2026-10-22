@@ -171,7 +171,7 @@ def create_execution_app(
         or not 1 <= max_request_bytes <= 10_000_000
     ):
         raise ValueError("max_request_bytes must be between 1 and 10,000,000")
-    app = FastAPI(title="SentinelMCP", version="0.1.0a0")
+    app = FastAPI(title="SentinelMCP", version="0.1.0")
     app.add_middleware(RequestBodyLimitMiddleware, maximum_bytes=max_request_bytes)
     gateway = GatewayObservability() if gateway_observability is None else gateway_observability
 

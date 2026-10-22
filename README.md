@@ -1,17 +1,28 @@
 # SentinelMCP
 
-**A reliability, safety, and observability control plane for AI agent tool calls.**
+**A reliability, safety, security, and observability control plane for AI-agent tool execution.**
 
 SentinelMCP is an open-source infrastructure project for mediating calls from AI agents to
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 12 are complete. SentinelMCP can durably register exact
+> **Project status:** Version 0.1.0 is a public-alpha release candidate. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
 > confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
 > process-local rate limiting, retry budgets, and three-state circuit breaking. This is not
 > production-ready software.
+
+## Verified evidence
+
+- **617 tests** passed with **95.64% branch-aware coverage** in the complete Windows/Python 3.12
+  and PostgreSQL 17.11 gate.
+- **23/23 deterministic fault scenarios** matched expected attribution and dispatch behavior.
+- The documented local benchmark measured the core executor at **5,051 requests/s** and
+  **0.251 ms p95** at concurrency 1 after profile-guided schema-validator caching.
+
+These numbers and their limits are sourced in [Resume evidence](docs/RESUME_EVIDENCE.md). The
+benchmark is synthetic local evidence, not a production throughput or SLO claim.
 
 ## Why this exists
 
@@ -23,25 +34,29 @@ arguments? What failed, and can the request be reproduced safely?
 SentinelMCP provides one execution path where those concerns can be enforced consistently.
 It does not decide what an agent should think. It controls what an agent is allowed to do.
 
-## Target architecture
+## Execution architecture
 
 ```mermaid
 flowchart LR
-    A[AI agent or developer] -->|MCP or REST| G[Gateway adapters]
-    G --> O[Tool-call orchestrator]
-    O --> I[Identity and policy]
-    O --> R[Tool registry]
-    O --> M[Mutation guard]
-    O --> E[Execution engine]
-    E --> T[Synthetic tool services]
-    E --> C[Retry, deadline, circuit breaker]
-    O --> P[(PostgreSQL)]
-    O --> D[(Redis)]
-    O --> OT[OpenTelemetry]
-    O --> PM[Prometheus]
-    OT --> OC[OTel Collector]
-    PM --> GR[Grafana]
+    A[Agent / MCP client] --> G[MCP or REST authentication]
+    G --> C[Exact versioned contract]
+    C --> IV[Input validation]
+    IV --> AZ[Authorization]
+    AZ --> M[Mutation safety]
+    M --> I[Durable idempotency]
+    I --> R[Reliability controls]
+    R --> T[Tool adapter]
+    T --> OV[Output validation]
+    OV --> E[Audit / metrics / traces]
+    C --> P[(PostgreSQL)]
+    M --> P
+    I --> P
+    E --> P
 ```
+
+Read calls bypass the mutation-only confirmation and idempotency stages. PostgreSQL owns durable
+contracts, mutation state, and audit evidence; runtime bindings and reliability coordination are
+currently process-local.
 
 The gateway begins as a **modular monolith**. Protocol adapters share one application
 orchestrator, while registry, policy, mutation safety, execution, audit, and telemetry remain
@@ -50,6 +65,8 @@ control plane before scale requires service extraction.
 
 See [Architecture](docs/ARCHITECTURE.md) and
 [Design decisions](docs/DESIGN_DECISIONS.md) for the detailed request lifecycle and tradeoffs.
+
+Start with the [Quickstart](docs/QUICKSTART.md) and [verified examples](docs/EXAMPLES.md).
 
 ## Implemented capabilities
 
@@ -116,6 +133,8 @@ The full behavioral contract and current limits are in
 [Audit contract](docs/AUDIT.md) and [Observability](docs/OBSERVABILITY.md) define the evidence,
 telemetry, redaction, and failure policies. [Safe replay](docs/REPLAY.md) and the
 [CLI reference](docs/CLI.md) document operator workflows and their security limits.
+[API reference](docs/API_REFERENCE.md) and [Configuration](docs/CONFIGURATION.md) document the
+public adapters and explicit composition controls.
 [MCP integration](docs/MCP.md) documents discovery, exact-version encoding, transports,
 authentication assumptions, mutation actions, errors, and cancellation. [Reliability
 evaluation](docs/EVALUATION.md) defines the Phase 11 scenario and attribution contract.
@@ -210,7 +229,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 10 | Official MCP integration | Complete |
 | 11 | Fault injection and reliability evaluation | Complete |
 | 12 | Performance benchmarking and profiling | Complete |
-| 13 | Release, portfolio, security, and documentation polish | Planned |
+| 13 | Release, portfolio, security, and documentation polish | In final validation |
 
 ## Benchmarks
 

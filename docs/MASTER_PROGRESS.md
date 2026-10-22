@@ -20,21 +20,24 @@ diff. Update it after every significant milestone and commit.
 - **Completed Phase 12 implementation HEAD:** `d5e0c67` (`main`, Add reproducible benchmark
   harness); profile-guided schema-validator optimization is in `03b3ca0`; documentation and
   committed benchmark evidence are in `045c52f`
-- **Uncommitted work:** This Phase 12 checkpoint transition only
+- **Completed Phase 13 security HEAD:** `37dad2e` (`main`, Harden HTTP network boundaries)
+- **Uncommitted work:** Version 0.1.0 release packaging, CI, installed-wheel smoke, and final
+  release/evidence documentation
 - **Staged work:** None
 - **Remote:** None configured
 
 ## Last verified evidence
 
-- Complete suite: 597 passed, 0 skipped, 0 warnings
-- Branch coverage: 96.14%
-- Real PostgreSQL lane: included and passed in the complete suite
+- Complete Python 3.12.14 suite: 617 passed in 49.32 seconds, 0 skipped, 0 warnings
+- Branch coverage: 95.64% (5,344 statements and 1,300 branches measured)
+- Real PostgreSQL lane: 58 tests collected and passed in the complete suite
 - Focused MCP lane: 42 passed; MCP adapter local coverage was 91% for names, 93% for principal,
   and 88% for server
 - Phase 11 focused evaluation/fault/CLI lane: 33 passed
-- Ruff format: passed (132 Python files); Ruff lint: passed
-- Strict mypy: passed (127 files)
-- Markdown-link and package-layout tests: 16 passed with coverage disabled for the focused lane
+- Ruff 0.17.2 format: passed (180 Python files); Ruff lint: passed
+- Strict mypy 1.20.2: passed (128 files)
+- Markdown-link, package-layout, and package-metadata checks: passed in the complete suite; focused
+  Markdown-link/package-metadata lane: 3 passed
 - Phase 10 source distribution built and inspected; wheel built from the extracted source
   distribution and inspected
 - MCP modules/tests/documentation, Apache-2.0 license files, and license metadata: verified in both
@@ -44,6 +47,21 @@ diff. Update it after every significant milestone and commit.
 - Isolated installed-wheel dependency check: passed (`pip check` reported no broken requirements)
 - Installed-wheel official-client smoke: negotiated MCP `2026-07-28`, listed three exact-version
   demo tools, and returned `{'sum': 5}` for the demo addition tool
+- Phase 13 installed-wheel release smoke: imported version `0.1.0` from isolated
+  `site-packages` with `PYTHONPATH` cleared, passed `pip check`, ran the `sentinel` entry point,
+  negotiated MCP `2026-07-28`, discovered exactly `s.demo.catalog.lookup_1.0.0`,
+  `s.demo.math.add_1.0.0`, and `s.demo.profile.get_1.0.0`, and returned `{'sum': 5}` through MCP,
+  the core executor, and authenticated in-process REST
+- CI-equivalent latest-compatible environment: FastAPI 0.161.0, SQLAlchemy 2.1.6, Alembic 1.20.1,
+  pytest 9.1.1, and Ruff 0.17.2 passed `pip check`, strict third-party advisory audit, static
+  analysis, and the same 617-test/95.64% gate
+- Phase 13 source distribution built successfully; the wheel was built from its extracted source
+  tree; Twine 6.2.0 accepted both archives with Core Metadata 2.4
+- Archive inspection: sdist contained 199 expected source, docs, test, migration, license, and smoke
+  files; wheel contained 83 package/metadata/license files; development tools, local artifacts,
+  caches, and raw benchmark payloads were absent
+- Dependency audit: no known vulnerabilities in the resolved third-party environment; the local
+  unpublished editable package was excluded from the frozen audit input
 - Alembic CLI upgrade, downgrade to base, and second upgrade to revision `0003` head: passed
 - Docker Compose v5.6.0 configuration validation: passed
 - Grafana dashboard JSON validation: passed (7 panels)
@@ -113,11 +131,11 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Perform the final security review, including SSRF/network-target policy, redirect behavior,
-   secrets, logs, generated artifacts, and repository history.
-2. Complete release documentation, demos, portfolio evidence, packaging, and clean-install checks.
-3. Run the final quality/security/publication gate, then create and verify the public GitHub
-   repository, CI, optional `v0.1.0` release, and portfolio links.
+1. Complete release documentation and the repository-wide security/proprietary/history review.
+2. Run the final Python 3.12/PostgreSQL 17 quality, migration, packaging, audit, and artifact gate;
+   record its exact counts, hashes, and tool versions here.
+3. Create the verified local release commit and `v0.1.0` tag, publish the public GitHub repository,
+   verify green CI, then update and verify the existing portfolio deployment and cross-links.
 
 ## Resume commands
 
@@ -127,8 +145,8 @@ $env:SENTINELMCP_TEST_DATABASE_URL = 'postgresql+psycopg://sentinelmcp_test@127.
 $python = 'python'
 & $python -m pytest
 & $python -m mypy
-.\.devtools\bin\ruff.exe format --check .
-.\.devtools\bin\ruff.exe check .
+ruff format --check .
+ruff check .
 ```
 
 If PostgreSQL is not running:

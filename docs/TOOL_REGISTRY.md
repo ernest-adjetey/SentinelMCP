@@ -33,8 +33,8 @@ The external reference form is `namespace.name@version`, for example
 | Description | Human-readable discovery text |
 | Input and output schemas | Machine-enforced call contract |
 | Operation class | Exactly `read` or `mutation` |
-| Timeout policy | Future whole-call execution budget ceiling |
-| Retry policy | Future bounded attempt and delay metadata |
+| Timeout policy | Whole-call execution budget ceiling enforced by the executor |
+| Retry policy | Bounded read-attempt and full-jitter delay metadata |
 | Idempotency support | Required before a mutation may declare multiple attempts |
 | Capabilities | Bounded discovery labels with the identifier character set |
 
@@ -184,5 +184,6 @@ result = registry.register(definition)
 registry.validator_for(result.definition.ref).validate_arguments({"asset_id": "asset-1"})
 ```
 
-`validator_for` is an in-memory convenience used by the future execution composition root; it
-is not part of the persistence-neutral registry protocol.
+`validator_for` is an in-memory convenience used by local compositions and tests; it is not part
+of the persistence-neutral registry protocol. The shared executor validates definitions returned
+by either registry implementation and uses the bounded immutable-definition validator cache.

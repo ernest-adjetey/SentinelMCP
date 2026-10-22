@@ -10,24 +10,25 @@ failures. The gateway must not convert every failure into HTTP 500 or leak raw u
 
 | Code | Meaning | Default retry guidance |
 | --- | --- | --- |
-| `AUTHENTICATION_ERROR` | Credentials are missing or invalid | Do not retry unchanged |
-| `AUTHORIZATION_ERROR` | Identity lacks permission | Do not retry unchanged |
-| `VALIDATION_ERROR` | Request or arguments violate the contract | Do not retry unchanged |
-| `RATE_LIMIT_ERROR` | Trusted rate-limit scope is exhausted | Retry after server guidance |
-| `TOOL_NOT_FOUND` | Tool name or version is unknown/inactive | Do not retry unchanged |
-| `CONFIRMATION_REQUIRED` | Mutation needs preview and confirmation | Follow mutation workflow |
-| `CONFIRMATION_EXPIRED` | Challenge is expired, consumed, or mismatched | Generate a new preview |
-| `IDEMPOTENCY_CONFLICT` | Key was reused for different arguments | Use the original request or a new key |
-| `UPSTREAM_AUTHENTICATION_ERROR` | Tool rejected SentinelMCP credentials | Operator action; no caller retry |
-| `UPSTREAM_AUTHORIZATION_ERROR` | Tool denied the operation | Operator/policy action |
-| `UPSTREAM_RATE_LIMITED` | Tool returned a recognized throttle response | Retry only within budget |
-| `UPSTREAM_TIMEOUT` | Deadline elapsed before a valid response | Reads may retry within budget |
-| `UPSTREAM_UNAVAILABLE` | Connection or transient 5xx failure | Policy-dependent bounded retry |
-| `UPSTREAM_MALFORMED_RESPONSE` | Status/body/content type/schema is invalid | Do not retry by default |
-| `CIRCUIT_OPEN` | Calls are blocked during dependency cooldown | Retry after cooldown guidance |
-| `OUTCOME_UNKNOWN` | Mutation may have committed but no outcome is known | Never blind-retry |
-| `AUDIT_UNAVAILABLE` | Required audit persistence failed | Mutations fail closed |
-| `INTERNAL_ERROR` | Unclassified gateway defect | Retry only if documented safe |
+| `authentication_failed` | Credentials are missing or invalid | Do not retry unchanged |
+| `authorization_failed` | Identity lacks permission | Do not retry unchanged |
+| `input_validation_failed` | Arguments violate the exact contract | Do not retry unchanged |
+| `rate_limited` | Trusted rate-limit scope is exhausted | Retry after server guidance |
+| `tool_not_found` | Exact tool name or version is unknown | Do not retry unchanged |
+| `mutation_not_supported` | Mutation used the ordinary read path | Follow preview/confirm workflow |
+| `mutation_confirmation_invalid` | Challenge is missing, expired, consumed, or mismatched | Generate a new preview |
+| `idempotency_conflict` | Key was reused for a different semantic request | Use the original request or a new key |
+| `upstream_authentication_failed` | Tool rejected SentinelMCP credentials | Operator action; no caller retry |
+| `upstream_authorization_failed` | Tool denied the operation | Operator/policy action |
+| `upstream_rate_limited` | Tool returned a recognized throttle response | Retry only within budget |
+| `upstream_timeout` | Upstream attempt timed out | Reads may retry within the request deadline |
+| `upstream_unavailable` | Connection or selected transient 5xx failure | Policy-dependent bounded retry |
+| `upstream_malformed_response` | Successful response is invalid UTF-8 or JSON | Do not retry by default |
+| `outbound_target_rejected` | URL, host, or resolved address violates outbound policy | Correct trusted configuration; do not retry unchanged |
+| `circuit_open` | Calls are blocked during dependency cooldown | Retry after cooldown guidance |
+| `mutation_outcome_unknown` | Mutation may have committed but no durable outcome is known | Never blind-retry |
+| `audit_unavailable` | Required audit persistence failed | Mutations fail closed |
+| `internal_execution_error` | Unclassified gateway defect | Retry only if documented safe |
 
 The public error envelope includes `code`, `message`, `request_id`, optional `retry_after_ms`,
 and bounded structured details. Internal causes and stack traces remain in redacted telemetry.
@@ -59,8 +60,8 @@ optional upstream status, and bounded validation issues. Categories distinguish 
 binding, adapter, upstream status, timeout/connection, media type, malformed/oversized body,
 output-schema, blocked mutation, and unexpected internal failures.
 
-Raw response bodies, credentials, exception representations, and stack traces are never fields
-on the public error. A non-success HTTP status is classified before body decoding, so a
+Raw response bodies, credentials, exception representations, local paths, and stack traces are
+not emitted in the public error or structured execution telemetry. A non-success HTTP status is classified before body decoding, so a
 plain-text `401` remains an upstream authentication failure.
 
 ### Implemented mutation errors
@@ -75,14 +76,13 @@ reported as unknown outcome because the external effect cannot be rolled back or
 
 The executor processes a response in this order:
 
-1. Read status and bounded headers.
-2. Enforce maximum response bytes while streaming.
-3. Classify status before interpreting a body.
-4. Validate media type against the tool contract.
-5. Decode bytes with the declared character set policy.
-6. Parse JSON with bounded depth and explicit failure handling.
-7. Validate the response schema.
-8. Convert to a domain result or normalized error.
+1. Read and classify the response status before interpreting a body.
+2. Validate a successful response's JSON media type and UTF-8 charset policy.
+3. Reject an oversized declared body and enforce the maximum while streaming.
+4. Decode strict UTF-8 and parse JSON with duplicate-key rejection.
+5. Convert the parsed value to bounded immutable JSON.
+6. Validate the response against the exact output schema.
+7. Convert it to a domain result or normalized error.
 
 At no point does it assume that a successful HTTP status implies valid JSON.
 

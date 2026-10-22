@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-SentinelMCP is pre-alpha and has no supported production release. Security fixes apply to the
-latest commit on `main` until the first release line is established.
+SentinelMCP 0.1.x is a public alpha and is not supported for production use. Security fixes apply
+to the latest 0.1.x release and the latest commit on `main`.
 
 ## Reporting a vulnerability
 

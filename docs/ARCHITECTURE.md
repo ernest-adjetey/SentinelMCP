@@ -26,7 +26,8 @@ later without changing the public execution contract.
 - Bounded execution using deadlines, retries, and circuit breakers.
 - Stable error envelopes even when an upstream response is malformed.
 - Sufficient redacted evidence for audit, debugging, evaluation, and safe replay.
-- Horizontal concurrency without relying on process-local correctness state.
+- Durable mutation correctness under horizontal concurrency without relying on process-local
+  reliability state.
 - Reproducible reliability and performance measurements.
 
 ### Non-goals
@@ -60,9 +61,8 @@ flowchart TB
         OBS[Telemetry]
     end
 
-    subgraph State
+    subgraph Durable state
         PG[(PostgreSQL)]
-        REDIS[(Redis)]
     end
 
     subgraph Synthetic dependencies
@@ -87,8 +87,6 @@ flowchart TB
     ORCH --> OBS
     REG --> PG
     MUT --> PG
-    AUTH --> REDIS
-    EXEC --> REDIS
     AUDIT --> PG
     EXEC --> ASSET
     EXEC --> OWNER
@@ -214,9 +212,10 @@ sequenceDiagram
     Gateway-->>Agent: stable response envelope
 ```
 
-Authorization occurs before rate-limited upstream work. Audit persistence is part of the
-contract for mutations and security decisions; read behavior during audit-store degradation
-is an explicit policy configured and tested in a later phase.
+Authorization occurs before rate-limited upstream work. Read-result audit failure preserves the
+normalized read outcome and emits best-effort telemetry. Mutation preview and pre-dispatch intent
+fail closed when required audit persistence is unavailable; a post-dispatch audit failure becomes
+an explicit unknown mutation outcome.
 
 ## 7. Mutation lifecycle
 
@@ -335,9 +334,15 @@ bounded labels, and measured timing. The transport retains method and URL metada
 never request bodies. Neither fault-injection implementation is wired into REST or MCP production
 composition.
 
-At 10x traffic, scale stateless gateway replicas horizontally. PostgreSQL connection pools,
-Redis command volume, audit write throughput, and high-cardinality telemetry are expected
-bottlenecks and must be measured before extraction.
+At 10x traffic, measure PostgreSQL connection pools, audit write throughput, adapter saturation,
+and telemetry export before scaling stateless gateway replicas. The built-in reliability controls
+are process-local, so replicas cannot claim a global rate, retry, or circuit bound without an
+atomic shared implementation.
+
+At 100x traffic, partition only after measurements identify the dominant boundary. Candidate
+changes include a durable audit ingestion pipeline, separately scaled evaluation workers, and a
+shared reliability-state service with explicit consistency and failover semantics. None is part of
+0.1.0, and no multi-replica performance claim is made.
 
 Likely future split points are audit ingestion and evaluation workers because they can consume
 versioned events asynchronously. Policy and mutation safety remain in the synchronous path

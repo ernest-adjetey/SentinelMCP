@@ -22,11 +22,14 @@ covers maintenance activity, license, transitive footprint, security posture, an
 | opentelemetry-api | Runtime | SDK-neutral tracing contracts and span instrumentation |
 | prometheus-client | Runtime | Isolated metric registries and standards-compatible text exposition |
 | Hatchling | Build only | Minimal PEP 517 backend for the `src` package layout |
+| build | Development | Standard isolated sdist/wheel frontend used by local and CI release gates |
 | Hypothesis | Development | Generated invariant tests for canonicalization, registry state, and validation |
 | Pytest | Development | Test discovery, fixtures, parametrization, and future async/plugin ecosystem |
 | pytest-cov | Development | Coverage measurement with branch support and CI output |
 | Ruff | Development | One fast formatter and linter replaces several overlapping tools |
 | mypy | Development | Strict static checking for public contracts and async control flow |
+| pip-audit | Development | Python advisory audit for the resolved local and CI dependency set |
+| Twine | Development | Distribution metadata and long-description validation without publishing |
 | types-jsonschema | Development | PEP 561 stubs for the otherwise untyped jsonschema import boundary |
 | opentelemetry-sdk | Development | In-memory span export and processor tests; deployment SDK remains host-configured |
 
@@ -109,7 +112,7 @@ loader with duplicate-key rejection, and report models remain typed dataclasses.
 mutation store implements the existing `MutationStateStore` protocol and is not exported through a
 gateway composition root.
 
-## Planned runtime dependencies
+## Potential runtime dependencies
 
 Additional runtime packages are added only in the phase that uses them. A supported Redis client
 may be considered if measured coordination requirements emerge.
@@ -119,7 +122,11 @@ every package before code requires it.
 
 ## Versioning and reproducibility
 
-Direct dependencies use bounded compatible ranges during development. A lockfile with hashes
-will be introduced when the first runnable service exists. CI tests the minimum supported
-Python version. Dependency updates must run the full test suite and any relevant benchmark
-smoke tests.
+Direct dependencies use bounded compatible ranges because SentinelMCP is distributed as a Python
+library rather than an application image. CI resolves those ranges on Python 3.12, runs
+`pip check`, freezes the resolved environment without the unpublished editable local package,
+strictly audits that third-party set with `pip-audit`, executes the complete PostgreSQL-backed
+suite, and builds and clean-installs the wheel. Release artifacts receive recorded SHA-256 hashes.
+There is no claim that bounded ranges provide bit-for-bit environment reproduction; a hosted
+deployment should lock and hash its complete application dependency graph. Dependency updates
+must run the full suite and any relevant benchmark smoke tests.

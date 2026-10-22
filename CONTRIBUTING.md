@@ -21,9 +21,9 @@ mypy
 pytest
 ```
 
-Tests that require PostgreSQL, Redis, or synthetic services will be explicitly marked once
-those dependencies are introduced. A skipped test must state which external prerequisite is
-missing; product behavior must not be silently skipped.
+The complete suite requires PostgreSQL 17 through `SENTINELMCP_TEST_DATABASE_URL`; CI provisions
+it and applies migrations before testing. A skipped local test must state which external
+prerequisite is missing. Product behavior must not be silently skipped.
 
 ## Commit guidance
 

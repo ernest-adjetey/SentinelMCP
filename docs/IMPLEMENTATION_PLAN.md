@@ -46,9 +46,9 @@ Each phase ends with:
 - Idempotent duplicate, immutable conflict, version isolation, latest, and concurrent registration
 - Property tests for canonicalization, deep immutability, registration, and runtime validation
 
-Endpoint bindings, activation state, authorization metadata, sensitivity annotations, compatible
-version ranges, and durable persistence remain deferred. They require the security and storage
-semantics introduced in later phases.
+At the Phase 2 boundary, endpoint bindings, authorization, and durable persistence were deferred;
+Phases 3 through 6 now own those concerns. Activation state, sensitivity annotations, and
+compatible-version execution remain outside the 0.1.0 contract.
 
 ## Phase 3: Gateway and execution orchestration
 
@@ -71,9 +71,9 @@ semantics introduced in later phases.
 - Properties proving invalid input never dispatches, invalid output never succeeds, and request
   arguments remain isolated from caller mutation
 
-MCP, CLI execution, cancellation policy, request-wide deadlines, retries, circuit breaking,
-authentication, authorization, mutation confirmation, persistence, and telemetry remain
-deferred to their owning phases.
+Subsequent phases added MCP, CLI execution, cancellation behavior, request-wide deadlines,
+retries, circuit breaking, authentication, authorization, mutation confirmation, persistence,
+and telemetry without changing this transport-independent execution boundary.
 
 ## Phase 4: Durable PostgreSQL tool registry
 
@@ -95,8 +95,9 @@ deferred to their owning phases.
 - Migration up/down/up inspection, unavailable database, and corrupted row handling
 - Independent-engine restart persistence and PostgreSQL-backed gateway execution
 
-Redis, runtime-binding persistence, audit storage, authentication, authorization, mutation
-confirmation, and reliability controls remain deferred until their owning requirements exist.
+Subsequent phases added audit storage, authentication, authorization, mutation confirmation, and
+process-local reliability controls. Runtime-binding persistence and Redis-backed coordination are
+not part of 0.1.0.
 
 ## Phase 5: Authentication and authorization
 
@@ -166,6 +167,8 @@ propagated.
 
 ## Phase 8: Observability
 
+**Status: Complete**
+
 **Deliverables**
 
 - OpenTelemetry spans and context propagation
@@ -182,6 +185,8 @@ propagated.
 
 ## Phase 9: Replay and debugging CLI
 
+**Status: Complete**
+
 **Deliverables**
 
 - Safe replay record schema and bounded argument reconstruction
@@ -197,6 +202,8 @@ propagated.
 
 ## Phase 10: Official MCP integration
 
+**Status: Complete**
+
 **Deliverables**
 
 - Official current MCP Python SDK integration
@@ -210,6 +217,8 @@ propagated.
 - Authentication, authorization, validation, and normalized failure parity
 
 ## Phase 11: Fault injection and evaluation framework
+
+**Status: Complete**
 
 **Deliverables**
 
@@ -228,6 +237,8 @@ propagated.
 
 ## Phase 12: Benchmark framework
 
+**Status: Complete**
+
 **Deliverables**
 
 - Load generator and resource sampler
@@ -245,12 +256,14 @@ No result enters the README until the full protocol in `BENCHMARKS.md` has run.
 
 ## Phase 13: Security, test, and release polish
 
+**Status: In final validation**
+
 **Deliverables**
 
 - SSRF-safe outbound target policy and focused adversarial tests
 - Unit, API, integration, concurrency, fault, property, and mutation-safety test suites
 - CI, packaging, dependency, migration, and license verification
-- Deterministic demo of the twelve required reliability scenarios
+- Deterministic evaluation of 23 reliability scenarios
 - Final diagrams, screenshots, measured benchmark/evaluation results, and operator runbook
 - API reference, configuration reference, release notes, and first tagged pre-release
 - Verification that no proprietary names, data, credentials, or unsupported claims remain
@@ -262,8 +275,8 @@ No result enters the README until the full protocol in `BENCHMARKS.md` has run.
 | False exactly-once claim | ADR 0003, unknown-outcome state, lost-response tests |
 | Unsafe retry | Registry-declared semantics plus retry matrix tests |
 | Confirmation replay/race | Durable atomic consume and concurrent tests |
-| Circuit races across replicas | Redis state machine and multi-process tests |
-| Leaking payloads | Schema sensitivity annotations and redaction regression corpus |
+| Circuit races across replicas | Process-local scope is explicit; a future shared implementation requires atomic multi-process tests |
+| Leaking payloads | Payload-free audit/metrics, allowlisted traces, bounded log redaction, and regression tests |
 | Telemetry overload | Bounded labels, sampling policy, exporter-failure tests |
 | Replay bypasses policy | Reauthorization, synthetic allowlist, replay audit |
 | Framework-driven architecture | Domain contracts remain framework-independent |

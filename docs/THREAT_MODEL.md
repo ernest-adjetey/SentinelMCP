@@ -2,7 +2,8 @@
 
 ## Scope
 
-This document covers the SentinelMCP gateway, its durable and coordination stores, synthetic
+This document covers the SentinelMCP gateway, its durable store and process-local coordination
+controls, synthetic
 tool services, observability pipeline, replay tooling, and operator CLI. It assumes TLS is
 terminated by trusted infrastructure in hosted environments; transport deployment is not yet
 implemented.
@@ -37,7 +38,6 @@ authorized, and model confidence is never treated as security evidence.
 flowchart LR
     U[Untrusted client and model output] -->|authenticated request| G[SentinelMCP gateway]
     G -->|durable state| P[(PostgreSQL)]
-    G -->|coordination| R[(Redis)]
     G -->|least-privilege credentials| T[Tool service]
     G -->|redacted telemetry| O[Observability backend]
     OP[Privileged operator] -->|administrative commands| G
@@ -205,7 +205,7 @@ non-sensitive synthetic arguments are supported by the default workflow.
 
 ## Threats and controls
 
-| Threat | Planned controls | Residual risk / validation |
+| Threat | Controls | Residual risk / validation |
 | --- | --- | --- |
 | Forged identity | Implemented bounded signature, issuer, audience, time, key-ID, and algorithm validation; caller identity comes only from verified claims | Identity-provider and signing-key compromise remain external; revocation is absent |
 | Confused deputy | Implemented exact tool/operation authorization from normalized roles and scopes; model text is never a role | Delegated-agent and tenant models are not implemented |
@@ -214,10 +214,10 @@ non-sensitive synthetic arguments are supported by the default workflow.
 | Schema or payload denial of service | Implemented raw request/response limits, schema complexity limits, bounded JSON depth, and execution deadlines | Aggregate CPU and connection exhaustion still need deployment limits and load tests |
 | Confirmation theft or replay | Store token hashes only; exact-request binding; short expiry; atomic one-time consume | A stolen live token can be used by the bound identity until expiry |
 | Preview/execute mismatch | Immutable tool version plus canonical argument and policy digest | Canonicalization requires cross-version test vectors |
-| Duplicate mutation | Unique idempotency scope and digest; upstream key propagation when supported | Unknown outcome remains possible without upstream support |
+| Duplicate mutation | Unique idempotency scope and digest; completed duplicates recover without redispatch | Downstream key propagation is absent, so an unknown external outcome remains possible |
 | Retry amplification | Retry budgets, jitter, global deadline, circuit breaker, no unsafe mutation retry | Multiple gateway tiers can still amplify if budgets are not propagated |
 | Malicious upstream response | Status/content-type/size/schema checks before decoding; normalized error envelope | Semantically malicious valid JSON needs tool-specific validation |
-| Credential disclosure | Secret manager integration, per-tool credentials, redaction before telemetry, no credentials in registry rows | Memory inspection is outside current scope |
+| Credential disclosure | No credentials in registry or audit rows; bounded redaction before structured logs; deployment-owned credential injection | A secret under an innocuous field name and process-memory inspection remain outside current controls |
 | Audit tampering | Append-oriented application API, strict rows, conflicting-ID detection, restricted database role recommended | Database administrator can still alter storage; signing, sequence hashes, and WORM retention are not implemented |
 | Telemetry data leak | Allowlisted trace attributes, recursive structured-log redaction, no payloads or tokens | Logs and traces still contain bounded correlation metadata and require access control |
 | Cardinality attack | Finite metric labels; exact tools, principals, request IDs, and execution IDs omitted | Additional metrics must preserve the allowlist |
@@ -228,7 +228,7 @@ non-sensitive synthetic arguments are supported by the default workflow.
 | MCP version confusion | Reversible canonical names encode exact SemVer including prerelease/build metadata; no latest fallback; names are reparsed and re-encoded | Exact references whose encoding exceeds MCP's 128-character limit cannot be exposed |
 | MCP mutation bypass | Mutation calls use explicit preview/confirm actions backed by the existing PostgreSQL challenge and idempotency service | Cancellation after dispatch cannot prove an external side effect was stopped |
 | Fault-injection exposure | Separate test configuration and package; startup refusal in production mode | Misconfigured deployment needs CI policy checks |
-| Supply-chain compromise | Pinned lockfile in a later phase, dependency review, hashes in release builds, minimal dependencies | CI runner and package index are external trust roots |
+| Supply-chain compromise | Bounded direct ranges, minimal dependencies, dependency review, CI advisory audit, clean-wheel install, and recorded release hashes | Library consumers still resolve transitive versions; CI runner and package index are external trust roots |
 
 ## Sensitive-data handling
 

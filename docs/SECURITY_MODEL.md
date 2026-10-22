@@ -2,7 +2,7 @@
 
 ## Implemented scope
 
-Phase 5 adds authentication and authorization to the execution path. SentinelMCP verifies a
+SentinelMCP verifies a
 bounded signed JWT at the REST ingress, converts trusted claims into a small immutable
 `Principal`, resolves and validates the exact tool request, and applies a deterministic policy
 before mutation handling, runtime binding lookup, or adapter dispatch.
@@ -130,11 +130,12 @@ provider, signing-key store, or transport is secure.
   URL to one approved address while preserving the original Host header and TLS SNI. Redirects
   remain disabled. Explicit trusted-development configuration can permit plaintext or non-global
   targets; production compositions must not enable those exceptions.
-- Direct connections are protected from DNS rebinding by IP pinning. A deployment-supplied proxy
-  is an additional trust boundary and must enforce equivalent destination policy; proxy behavior
-  is outside SentinelMCP's direct socket control.
-- Mutation confirmation, durable audit, local reliability controls, constrained replay, bounded
-  ingress bodies, and outbound target controls are implemented.
+- Direct connections use a bounded DNS snapshot, reject the entire answer set if any address is
+  unsafe, and connect to one selected approved address. This removes a second hostname lookup from
+  the direct request path, but does not make the configured resolver, proxy, TLS trust store, or
+  network route trustworthy. A deployment-supplied proxy is an additional trust boundary and must
+  enforce equivalent destination policy; its DNS and routing behavior is outside SentinelMCP's
+  direct socket control.
 
 See [Threat model](THREAT_MODEL.md) for broader system threats and
 [ADR 0007](adr/0007-signed-jwt-and-exact-policy.md) for the decision rationale. MCP-specific
