@@ -57,6 +57,13 @@ def test_valid_draft_2020_12_contract_accepts_valid_arguments_and_output() -> No
     validator.validate_output({"found": True})
 
 
+def test_equal_immutable_definitions_reuse_the_compiled_contract() -> None:
+    first = validate_tool_definition_schemas(make_definition())
+    second = validate_tool_definition_schemas(make_definition())
+
+    assert first is second
+
+
 def test_runtime_argument_error_has_stable_paths_and_keyword_without_raw_value() -> None:
     validator = validate_tool_definition_schemas(
         make_definition(

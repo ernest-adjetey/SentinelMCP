@@ -6,6 +6,7 @@ import json
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import cast, final
 from urllib.parse import unquote
 
@@ -73,8 +74,9 @@ class ToolContractValidator:
             raise OutputValidationError(tool_ref=self.tool_ref, issues=issues)
 
 
+@lru_cache(maxsize=1_024)
 def validate_tool_definition_schemas(definition: ToolDefinition) -> ToolContractValidator:
-    """Validate and compile a definition's Draft 2020-12 schemas."""
+    """Validate and compile an immutable definition's Draft 2020-12 schemas."""
 
     return ToolContractValidator.compile(definition)
 
