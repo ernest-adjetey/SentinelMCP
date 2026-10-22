@@ -29,6 +29,7 @@ dependencies = [
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
   "jsonschema>=4.23,<5",
+  "mcp>=2.3,<3",
   "opentelemetry-api>=1.44,<2",
   "prometheus-client>=0.24,<1",
   "psycopg[binary]>=3.2,<4",
@@ -59,7 +60,17 @@ Issues = "https://github.com/ernest-adjetey/SentinelMCP/issues"
 Repository = "https://github.com/ernest-adjetey/SentinelMCP"
 
 [tool.hatch.build]
-exclude = ["/.devtools", "/.hypothesis"]
+exclude = [
+  "/.devtools",
+  "/.devtools/**",
+  "/.hypothesis",
+  "/.hypothesis/**",
+  "/.mypy_cache/**",
+  "/.pytest_cache/**",
+  "/.ruff_cache/**",
+  "/artifacts/**",
+  "/dist/**",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sentinelmcp"]
