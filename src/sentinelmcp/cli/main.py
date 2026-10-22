@@ -16,6 +16,11 @@ from typing import Any
 
 from sentinelmcp.application import DemoRuntime, create_demo_runtime
 from sentinelmcp.audit import DurableAuditRecorder, InMemoryAuditStore
+from sentinelmcp.benchmarking import (
+    BenchmarkConfig,
+    run_benchmark_suite,
+    write_benchmark_artifacts,
+)
 from sentinelmcp.domain import SentinelMCPError, ToolRef
 from sentinelmcp.domain.json_values import thaw_json
 from sentinelmcp.evaluation import run_phase11_evaluation
@@ -141,6 +146,33 @@ async def _dispatch(arguments: argparse.Namespace) -> tuple[dict[str, object], i
         return evaluation_document, 0 if report.passed == len(report.results) else 1
 
     if arguments.command == "benchmark":
+        if arguments.benchmark_command == "suite":
+            config = BenchmarkConfig(
+                concurrency_levels=arguments.concurrency,
+                postgres_concurrency_levels=arguments.postgres_concurrency,
+                warmup_requests=arguments.warmup,
+                requests_per_trial=arguments.requests,
+                trials=arguments.trials,
+            )
+            run = await run_benchmark_suite(
+                config,
+                postgres_url=os.environ.get("SENTINELMCP_TEST_DATABASE_URL"),
+            )
+            output = Path(arguments.output)
+            command = (
+                "sentinel benchmark suite "
+                f"--output {output} --trials {config.trials} "
+                f"--requests {config.requests_per_trial} --warmup {config.warmup_requests} "
+                f"--concurrency {','.join(map(str, config.concurrency_levels))} "
+                "--postgres-concurrency "
+                f"{','.join(map(str, config.postgres_concurrency_levels))}"
+            )
+            summary = write_benchmark_artifacts(run, output, command=command)
+            return {
+                "status": "ok",
+                "artifact": str(output),
+                "summary": summary,
+            }, 0
         return await _run_benchmark(runtime.demo, principal, arguments.iterations), 0
 
     raise ValueError("unknown command")
@@ -283,6 +315,32 @@ def _bounded_iterations(value: str) -> int:
     return parsed
 
 
+def _bounded_number(value: str, *, name: str, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{name} must be an integer") from None
+    if not minimum <= parsed <= maximum:
+        raise argparse.ArgumentTypeError(f"{name} must be from {minimum} through {maximum}")
+    return parsed
+
+
+def _concurrency_levels(value: str) -> tuple[int, ...]:
+    try:
+        levels = tuple(int(part) for part in value.split(","))
+    except ValueError:
+        raise argparse.ArgumentTypeError("concurrency must be comma-separated integers") from None
+    if (
+        not levels
+        or tuple(sorted(set(levels))) != levels
+        or not all(1 <= level <= 500 for level in levels)
+    ):
+        raise argparse.ArgumentTypeError(
+            "concurrency must contain unique ascending values from 1 through 500"
+        )
+    return levels
+
+
 def _add_identity_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--principal-issuer", default=DEFAULT_PRINCIPAL_ISSUER)
     parser.add_argument("--principal-subject", default=DEFAULT_PRINCIPAL_SUBJECT)
@@ -339,4 +397,33 @@ def _parser() -> argparse.ArgumentParser:
     benchmark_run.add_argument("--iterations", type=_bounded_iterations, default=100)
     _add_identity_arguments(benchmark_run)
     _add_store_argument(benchmark_run)
+    benchmark_suite = benchmark_subparsers.add_parser("suite")
+    benchmark_suite.add_argument("--output", required=True)
+    benchmark_suite.add_argument(
+        "--trials",
+        type=lambda value: _bounded_number(value, name="trials", minimum=1, maximum=20),
+        default=5,
+    )
+    benchmark_suite.add_argument(
+        "--requests",
+        type=lambda value: _bounded_number(value, name="requests", minimum=1, maximum=100_000),
+        default=200,
+    )
+    benchmark_suite.add_argument(
+        "--warmup",
+        type=lambda value: _bounded_number(value, name="warmup", minimum=0, maximum=10_000),
+        default=20,
+    )
+    benchmark_suite.add_argument(
+        "--concurrency",
+        type=_concurrency_levels,
+        default=(1, 10, 50, 100),
+    )
+    benchmark_suite.add_argument(
+        "--postgres-concurrency",
+        type=_concurrency_levels,
+        default=(1, 10),
+    )
+    _add_identity_arguments(benchmark_suite)
+    _add_store_argument(benchmark_suite)
     return parser

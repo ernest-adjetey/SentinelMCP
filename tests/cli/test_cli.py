@@ -234,3 +234,45 @@ def test_evaluation_mismatch_returns_nonzero_with_complete_report(
     assert document["status"] == "error"
     assert document["evaluation"]["failed"] == 1
     assert len(document["evaluation"]["results"]) == 1
+
+
+def test_reproducible_benchmark_suite_command_writes_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv("SENTINELMCP_TEST_DATABASE_URL", raising=False)
+    output = tmp_path / "benchmark"
+
+    assert (
+        main(
+            [
+                "benchmark",
+                "suite",
+                "--output",
+                str(output),
+                "--trials",
+                "1",
+                "--requests",
+                "1",
+                "--warmup",
+                "0",
+                "--concurrency",
+                "1",
+                "--postgres-concurrency",
+                "1",
+            ]
+        )
+        == 0
+    )
+    document = json.loads(capsys.readouterr().out)
+    assert document["status"] == "ok"
+    assert document["artifact"] == str(output)
+    assert len(document["summary"]["groups"]) == 6
+    assert (output / "requests.jsonl").is_file()
+
+
+@pytest.mark.parametrize("value", ["", "2,1", "0", "1,1", "501", "one"])
+def test_benchmark_suite_rejects_invalid_concurrency(value: str) -> None:
+    with pytest.raises(SystemExit):
+        main(["benchmark", "suite", "--output", "ignored", "--concurrency", value])
