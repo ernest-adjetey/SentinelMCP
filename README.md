@@ -6,7 +6,7 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 9 are complete. SentinelMCP can durably register exact
+> **Project status:** Phases 1 through 10 are complete. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
 > confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
@@ -92,6 +92,10 @@ See [Architecture](docs/ARCHITECTURE.md) and
   a final binding guard against target replacement
 - JSON-emitting `sentinel` commands for tool discovery, execution, record inspection, replay,
   evaluation smoke checks, and bounded diagnostic benchmarks
+- Official MCP Python SDK v2 discovery and invocation over the same registry, executor,
+  authorization, reliability, audit, and telemetry lifecycle as REST
+- Reversible exact-version MCP names, trusted in-memory/stdio principal injection, authenticated
+  Streamable HTTP composition, and PostgreSQL-backed MCP mutation preview/confirmation
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
@@ -103,10 +107,11 @@ The full behavioral contract and current limits are in
 [Audit contract](docs/AUDIT.md) and [Observability](docs/OBSERVABILITY.md) define the evidence,
 telemetry, redaction, and failure policies. [Safe replay](docs/REPLAY.md) and the
 [CLI reference](docs/CLI.md) document operator workflows and their security limits.
+[MCP integration](docs/MCP.md) documents discovery, exact-version encoding, transports,
+authentication assumptions, mutation actions, errors, and cancellation.
 
 ## Planned capabilities
 
-- Official MCP entry point sharing the transport-independent execution contract
 - Fault injection, reliability evaluation, and reproducible performance benchmarks
 
 ## CLI quick start
@@ -193,7 +198,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 7 | Retries, deadlines, circuit breakers, error normalization | Complete |
 | 8 | Durable audit, OpenTelemetry, Prometheus, Grafana | Complete |
 | 9 | Replay and debugging CLI | Complete |
-| 10 | Official MCP integration | Planned |
+| 10 | Official MCP integration | Complete |
 | 11 | Fault injection and reliability evaluation | Planned |
 | 12 | Performance benchmarking and profiling | Planned |
 | 13 | Release, portfolio, security, and documentation polish | Planned |

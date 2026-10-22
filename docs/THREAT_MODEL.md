@@ -203,6 +203,9 @@ non-sensitive synthetic arguments are supported by the default workflow.
 | Rate-limit bypass | Implemented trusted-principal/exact-tool token bucket | State is process-local; replicas do not share a global limit |
 | Circuit-state poisoning | Implemented health-failure classification and generation-bound probes | Exact-tool local keys do not coordinate shared endpoints or replicas |
 | Replay abuse | Implemented synthetic/read/capability target policy, current reauthorization, dry-run mode, pre-dispatch audit, fingerprint check, and final binding guard | CLI audit is process-local; file records are unencrypted; operator compromise remains high impact |
+| MCP identity confusion | Protocol/session identity is never a Sentinel principal; default MCP composition denies all; HTTP uses the existing signed-token authenticator | Trusted stdio principal injection and TLS/proxy configuration remain deployment trust decisions |
+| MCP version confusion | Reversible canonical names encode exact SemVer including prerelease/build metadata; no latest fallback; names are reparsed and re-encoded | Exact references whose encoding exceeds MCP's 128-character limit cannot be exposed |
+| MCP mutation bypass | Mutation calls use explicit preview/confirm actions backed by the existing PostgreSQL challenge and idempotency service | Cancellation after dispatch cannot prove an external side effect was stopped |
 | Fault-injection exposure | Separate test configuration and package; startup refusal in production mode | Misconfigured deployment needs CI policy checks |
 | Supply-chain compromise | Pinned lockfile in a later phase, dependency review, hashes in release builds, minimal dependencies | CI runner and package index are external trust roots |
 

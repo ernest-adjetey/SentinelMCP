@@ -120,8 +120,12 @@ provider, signing-key store, or transport is secure.
 - The principal has no delegated agent identity or tenant model.
 - TLS termination and trusted signing-key delivery are deployment concerns.
 - The REST adapter does not yet impose a raw request-body byte limit.
-- Mutation confirmation and local idempotency arbitration are implemented. Durable audit, rate
-  limiting, outbound endpoint policy, and replay controls belong to later phases.
+- MCP protocol and session identities are not treated as authenticated Sentinel principals.
+  Trusted in-memory/stdio callers require explicit principal injection; Streamable HTTP uses the
+  existing `Authenticator` through official SDK bearer middleware; unconfigured MCP denies all.
+- Mutation confirmation, durable audit, local reliability controls, and constrained replay are
+  implemented. A defensible outbound endpoint policy remains future work.
 
 See [Threat model](THREAT_MODEL.md) for broader system threats and
-[ADR 0007](adr/0007-signed-jwt-and-exact-policy.md) for the decision rationale.
+[ADR 0007](adr/0007-signed-jwt-and-exact-policy.md) for the decision rationale. MCP-specific
+assumptions are in [MCP integration](MCP.md).

@@ -312,6 +312,15 @@ records in a local append-only file directory. See [Safe replay](REPLAY.md) and
 
 ## 12. Scaling path
 
+### Official MCP boundary
+
+The MCP v2 adapter uses the official SDK's low-level server handlers. Discovery reads exact
+definitions from `ToolRegistry`; invocation decodes one reversible exact-version name and delegates
+to `ToolExecutor` or `MutationService`. It does not own policy, retries, output validation, audit,
+or telemetry. Trusted in-memory/stdio composition injects a principal explicitly. Streamable HTTP
+bridges the existing `Authenticator` through the SDK bearer middleware and defaults to stateless
+JSON transport. See [MCP integration](MCP.md).
+
 At 10x traffic, scale stateless gateway replicas horizontally. PostgreSQL connection pools,
 Redis command volume, audit write throughput, and high-cardinality telemetry are expected
 bottlenecks and must be measured before extraction.

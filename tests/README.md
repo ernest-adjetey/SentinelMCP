@@ -17,3 +17,8 @@ Phase 7 adds deterministic clock/randomness tests for request-wide deadlines, fu
 retry budgets, rate limiting, and circuit transitions. The concurrency lane uses 32 workers to
 prove exact local token capacity and bounded half-open admission. These are thread/process-local
 tests and do not claim distributed coordination.
+
+Phase 10 adds `mcp/` end-to-end tests using the official SDK's in-memory `Client(server)` path.
+Read cases cover exact-version discovery/routing, authorization, validation, normalized errors,
+cancellation, audit, metrics, and tracing. Mutation cases use real PostgreSQL to exercise the same
+durable preview, confirmation, idempotency, concurrency, and unknown-outcome service as REST.

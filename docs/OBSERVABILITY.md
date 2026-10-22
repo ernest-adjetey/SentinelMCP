@@ -93,3 +93,11 @@ is required.
 
 See [Audit contract](AUDIT.md), [Reliability controls](RELIABILITY.md), and
 [Failure model](FAILURE_MODEL.md).
+
+## MCP parity
+
+MCP handlers delegate to the same instrumented `ToolExecutor` and `MutationService` instances as
+REST. Exact tool values remain bounded trace attributes and are not Prometheus labels. MCP does not
+create a second audit or metric path. Official-client integration tests verify that an MCP read
+produces the shared payload-free audit event, execution/attempt spans, and finite operation/outcome
+metrics without argument or principal values in metric samples.

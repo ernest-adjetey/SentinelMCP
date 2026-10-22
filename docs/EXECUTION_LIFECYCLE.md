@@ -205,8 +205,10 @@ rejections expose bounded `retry_after_ms` guidance. See [Reliability controls](
   reconciliation are not implemented. Runtime bindings remain process-local.
 - Replay is limited to exact, explicitly marked synthetic read bindings. Its CLI file store and
   default audit store are local to one host and do not provide a hosted operator security boundary.
-- There is no MCP transport adapter yet. It must call the same core executor when its boundary
-  contract is implemented.
+- MCP Streamable HTTP is stateless and stdio has no inherent Sentinel authentication. Each
+  transport must be composed with an explicit principal resolver; the default denies all calls.
+- Client cancellation can cancel an in-process waiting adapter, but cannot prove cancellation of
+  an already delivered external mutation side effect.
 
 ## Audit and observability
 
@@ -227,3 +229,10 @@ contract and binding, compares the historical definition fingerprint, applies th
 target policy, records an audit intent, and runs current validation and authorization. Dry run
 returns the resulting plan without adapter dispatch. Actual replay gives the policy to the executor
 as a final binding guard immediately before dispatch. See [Safe replay](REPLAY.md).
+
+## MCP lifecycle
+
+MCP discovery lists deterministic exact versions with registered schemas. A call decodes the
+canonical MCP name to one `ToolRef`; reads enter `ToolExecutor`, while mutation `preview` and
+`confirm` actions enter `MutationService`. Structured MCP results are only transport encodings of
+the resulting application values. See [MCP integration](MCP.md).

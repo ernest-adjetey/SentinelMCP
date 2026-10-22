@@ -11,6 +11,7 @@ covers maintenance activity, license, transitive footprint, security posture, an
 | fastapi | Runtime | Minimal typed REST/ASGI boundary around the framework-neutral executor |
 | httpx | Runtime | Async one-attempt HTTP transport and deterministic mock transport tests |
 | jsonschema | Runtime | Standards-based Draft 2020-12 metaschema and instance validation |
+| mcp | Runtime | Official MCP v2 protocol, in-memory/stdio transports, Streamable HTTP, and bearer middleware |
 | pydantic | Runtime | Strict REST request-envelope models used directly by the adapter |
 | rfc8785 | Runtime | Correct JSON Canonicalization Scheme bytes without a custom number serializer |
 | semver | Runtime | Strict SemVer 2.0.0 parsing and precedence instead of permissive package versions |
@@ -91,11 +92,19 @@ an embedding service selects its deployment SDK and export pipeline.
 finite enum or normalized error code. Replacing it would require compatible counter, gauge,
 histogram, and exposition semantics.
 
+### Phase 10 dependency choice
+
+The official `mcp` package is bounded to `>=2.3,<3`; Phase 10 was implemented against 2.3.0 and
+the negotiated `2026-07-28` protocol. Installed metadata identifies its license as MIT. The SDK owns
+wire models, protocol negotiation, in-memory testing, stdio, Streamable HTTP, and bearer middleware.
+SentinelMCP uses the low-level `Server` boundary so exact registry schemas and application services
+remain authoritative. Replacing it would require another conforming implementation of protocol
+negotiation, cancellation, transports, authentication middleware, and schema/result validation.
+
 ## Planned runtime dependencies
 
-Additional runtime packages are added only in the phase that uses them. Expected future choices
-include the official MCP SDK where it supports the required transport and Redis's supported Python
-client if coordination requirements emerge.
+Additional runtime packages are added only in the phase that uses them. A supported Redis client
+may be considered if measured coordination requirements emerge.
 
 The dependency list in the project brief is a design constraint, not permission to install
 every package before code requires it.

@@ -127,3 +127,12 @@ Run the complete lane with `SENTINELMCP_TEST_DATABASE_URL` configured and `pytes
 live in `tests/integration/test_postgres_mutation_store.py`,
 `tests/concurrency/test_mutation_state_races.py`,
 `tests/concurrency/test_mutation_service_races.py`, and `tests/api/test_mutation_gateway.py`.
+
+## MCP mutation actions
+
+MCP exposes the same exact mutation as explicit `preview` and `confirm` actions under one
+exact-version tool name. The wrapper is transport syntax only: `MutationService` remains the sole
+owner of PostgreSQL challenges, principal/argument/version binding, single-use consumption,
+idempotency arbitration, dispatch, audit intent, and unknown outcomes. Focused official-SDK tests
+in `tests/mcp/test_mcp_mutations.py` cover expiry, wrong principal and arguments, unknown versions,
+replay, conflicts, concurrent confirmation, authorization denial, and post-dispatch audit failure.
