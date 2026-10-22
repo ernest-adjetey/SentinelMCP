@@ -6,7 +6,7 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Phases 1 through 11 are complete. SentinelMCP can durably register exact
+> **Project status:** Phases 1 through 12 are complete. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
 > confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
@@ -100,6 +100,8 @@ See [Architecture](docs/ARCHITECTURE.md) and
   duplicate-mutation, and ambiguous-mutation behavior
 - Machine-readable evaluation artifacts with expected/observed error, attribution, dispatch count,
   labels, and per-scenario timing
+- Reproducible profile-first benchmarks with raw per-request samples, CPU and Windows working-set
+  evidence, authenticated REST, official MCP SDK, audit/telemetry, failure, and PostgreSQL paths
 
 The full behavioral contract and current limits are in
 [Tool registry and schemas](docs/TOOL_REGISTRY.md) and
@@ -114,10 +116,7 @@ telemetry, redaction, and failure policies. [Safe replay](docs/REPLAY.md) and th
 [MCP integration](docs/MCP.md) documents discovery, exact-version encoding, transports,
 authentication assumptions, mutation actions, errors, and cancellation. [Reliability
 evaluation](docs/EVALUATION.md) defines the Phase 11 scenario and attribution contract.
-
-## Planned capabilities
-
-- Reproducible performance benchmarks and profiling
+[Benchmarks](docs/BENCHMARKS.md) defines the Phase 12 methodology, evidence, and limits.
 
 ## CLI quick start
 
@@ -128,6 +127,7 @@ sentinel inspect RECORD_ID
 sentinel replay RECORD_ID --dry-run
 sentinel replay RECORD_ID
 sentinel eval run --output phase11-evaluation.json
+sentinel benchmark suite --output benchmark-results/local
 ```
 
 Replay defaults to the local `.sentinelmcp/replays` directory and only dispatches to explicitly
@@ -206,14 +206,17 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 9 | Replay and debugging CLI | Complete |
 | 10 | Official MCP integration | Complete |
 | 11 | Fault injection and reliability evaluation | Complete |
-| 12 | Performance benchmarking and profiling | Planned |
+| 12 | Performance benchmarking and profiling | Complete |
 | 13 | Release, portfolio, security, and documentation polish | Planned |
 
 ## Benchmarks
 
-No benchmark results have been measured yet. The benchmark methodology and anti-bias rules
-are defined in [Benchmarks](docs/BENCHMARKS.md). Results will be committed only with the raw
-machine-readable output, environment metadata, and reproduction command.
+On the recorded Windows/Python 3.12 host, the optimized core executor measured 5,051 requests/s
+with 0.251 ms p95 latency at concurrency 1; authenticated in-process REST measured 1,041
+requests/s with 1.160 ms p95. These are local synthetic measurements, not production capacity or
+service-level claims. The [benchmark report](docs/BENCHMARKS.md) defines the workloads and limits,
+and the [committed result set](benchmarks/results/phase12-windows-local-after-cache-20261022/)
+contains the manifest, profile, raw samples, and complete generated summary.
 
 ## Security
 

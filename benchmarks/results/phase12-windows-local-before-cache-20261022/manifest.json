@@ -1,0 +1,37 @@
+{
+  "command": "sentinel benchmark suite --output benchmark-results\\phase12-windows-local-20261022 --trials 5 --requests 200 --warmup 20 --concurrency 1,10,50,100 --postgres-concurrency 1,10",
+  "configuration": {
+    "concurrency_levels": [
+      1,
+      10,
+      50,
+      100
+    ],
+    "postgres_concurrency_levels": [
+      1,
+      10
+    ],
+    "requests_per_trial": 200,
+    "trials": 5,
+    "warmup_requests": 20
+  },
+  "cpu_metric": "Process CPU time from time.process_time_ns",
+  "environment": {
+    "cpu_count": 22,
+    "machine": "AMD64",
+    "packages": {
+      "fastapi": "0.156.4",
+      "httpx": "0.28.1",
+      "mcp": "2.3.0",
+      "sqlalchemy": "2.1.5"
+    },
+    "platform": "Windows-11-10.0.26300-SP0",
+    "processor": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+    "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]"
+  },
+  "generated_at": "2026-10-22T09:10:43.814399Z",
+  "git_commit": "d5e0c67be451fad3c5aa9e03e71f8a7c57e2923d",
+  "memory_metric": "Windows process working set and process-lifetime peak working set sampled after each trial; null on unsupported platforms",
+  "omitted": {},
+  "schema_version": "1.0"
+}

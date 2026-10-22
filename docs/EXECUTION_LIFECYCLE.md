@@ -8,8 +8,9 @@ invocation, output validation, and stable response. The contract registry can be
 PostgreSQL. Mutations use separate durable preview and confirmation endpoints backed by
 PostgreSQL. Reads have request-wide deadlines, bounded retries, retry budgets, rate limiting, and
 circuit breaking. Phase 8 adds audit and telemetry. Phase 9 adds constrained synthetic replay and
-a local operator CLI over the same executor. MCP transport, fault evaluation, and reproducible
-benchmarks are not implemented.
+a local operator CLI over the same executor. Phase 10 adds official MCP transports over that
+executor, Phase 11 adds deterministic fault evaluation, and Phase 12 adds reproducible profiling
+and benchmark evidence.
 
 The public demo registers only read tools. A registered mutation is rejected by ordinary
 `ToolExecutor.execute` with `mutation_not_supported`; supported mutation callers must use

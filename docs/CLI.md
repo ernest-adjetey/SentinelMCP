@@ -53,6 +53,7 @@ allow it. See [Safe replay](REPLAY.md).
 ```bash
 sentinel eval run --output phase11-evaluation.json
 sentinel benchmark run --iterations 100
+sentinel benchmark suite --output benchmark-results/local
 ```
 
 The Phase 11 evaluation command loads the packaged, versioned fault catalog and invokes the real
@@ -67,6 +68,14 @@ executor path after a warmup and reports throughput, p50/p95/p99 latency, and er
 Iterations are bounded from 1 through 10,000. Its output is diagnostic only: it does not capture
 the environment or satisfy the publication protocol in [Benchmarks](BENCHMARKS.md), and no result
 from this command should be presented as a project performance claim.
+
+`benchmark suite` is the reproducible Phase 12 harness. It profiles the core executor first, then
+runs direct-adapter, core executor, authenticated REST, in-memory official MCP SDK, audited and
+instrumented executor, normalized failure, and optional PostgreSQL mutation workloads. Defaults
+are five trials of 200 measured requests after 20 warm-up requests at concurrency 1, 10, 50, and
+100. PostgreSQL uses concurrency 1 and 10 when `SENTINELMCP_TEST_DATABASE_URL` is set. The output
+directory must not exist; a successful run writes an immutable manifest, raw JSONL samples,
+profile, and generated summaries. See [Benchmarks](BENCHMARKS.md) before publishing results.
 
 ## Exit behavior
 

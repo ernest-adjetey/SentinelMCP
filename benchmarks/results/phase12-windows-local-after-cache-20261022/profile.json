@@ -1,0 +1,229 @@
+{
+  "functions": [
+    {
+      "cumulative_seconds": 0.1178472,
+      "file": "src/sentinelmcp/benchmarking/runner.py",
+      "function": "executor_core",
+      "line": 339,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0007071
+    },
+    {
+      "cumulative_seconds": 0.1144892,
+      "file": "src/sentinelmcp/application/executor.py",
+      "function": "execute",
+      "line": 185,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0007858
+    },
+    {
+      "cumulative_seconds": 0.0765067,
+      "file": "src/sentinelmcp/application/executor.py",
+      "function": "prepare",
+      "line": 253,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0027145
+    },
+    {
+      "cumulative_seconds": 0.0424648,
+      "file": "src/sentinelmcp/registry/fingerprint.py",
+      "function": "fingerprint_tool_definition",
+      "line": 44,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0003341
+    },
+    {
+      "cumulative_seconds": 0.0415503,
+      "file": "src/sentinelmcp/registry/fingerprint.py",
+      "function": "canonicalize_tool_definition",
+      "line": 15,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0008033
+    },
+    {
+      "cumulative_seconds": 0.0337031,
+      "file": ".devtools/rfc8785/_impl.py",
+      "function": "dumps",
+      "line": 177,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0002238
+    },
+    {
+      "cumulative_seconds": 0.0334125,
+      "file": ".devtools/rfc8785/_impl.py",
+      "function": "dump",
+      "line": 188,
+      "primitive_calls": 200,
+      "total_calls": 6400,
+      "total_seconds": 0.0117222
+    },
+    {
+      "cumulative_seconds": 0.0274027,
+      "file": "src/sentinelmcp/application/executor.py",
+      "function": "dispatch",
+      "line": 357,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0012036
+    },
+    {
+      "cumulative_seconds": 0.0217938,
+      "file": "src/sentinelmcp/application/executor.py",
+      "function": "_dispatch_attempt",
+      "line": 468,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.001271
+    },
+    {
+      "cumulative_seconds": 0.0198286,
+      "file": "src/sentinelmcp/registry/schema.py",
+      "function": "_runtime_validation_issues",
+      "line": 349,
+      "primitive_calls": 400,
+      "total_calls": 400,
+      "total_seconds": 0.0007947
+    },
+    {
+      "cumulative_seconds": 0.0179193,
+      "file": "~",
+      "function": "<built-in method builtins.next>",
+      "line": 0,
+      "primitive_calls": 3600,
+      "total_calls": 10800,
+      "total_seconds": 0.0040725
+    },
+    {
+      "cumulative_seconds": 0.0124883,
+      "file": "src/sentinelmcp/telemetry/observability.py",
+      "function": "observe_stage",
+      "line": 181,
+      "primitive_calls": 2800,
+      "total_calls": 2800,
+      "total_seconds": 0.0016302
+    },
+    {
+      "cumulative_seconds": 0.012353,
+      "file": ".devtools/rfc8785/_impl.py",
+      "function": "_serialize_str",
+      "line": 79,
+      "primitive_calls": 8000,
+      "total_calls": 8000,
+      "total_seconds": 0.006401
+    },
+    {
+      "cumulative_seconds": 0.0122157,
+      "file": ".devtools/jsonschema/validators.py",
+      "function": "iter_errors",
+      "line": 349,
+      "primitive_calls": 400,
+      "total_calls": 400,
+      "total_seconds": 0.0009585
+    },
+    {
+      "cumulative_seconds": 0.0103714,
+      "file": "src/sentinelmcp/registry/schema.py",
+      "function": "validate_arguments",
+      "line": 62,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.000152
+    },
+    {
+      "cumulative_seconds": 0.0102479,
+      "file": "Lib/contextlib.py",
+      "function": "__enter__",
+      "line": 132,
+      "primitive_calls": 1800,
+      "total_calls": 5400,
+      "total_seconds": 0.0015004
+    },
+    {
+      "cumulative_seconds": 0.0097549,
+      "file": "src/sentinelmcp/registry/schema.py",
+      "function": "validate_output",
+      "line": 69,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0001457
+    },
+    {
+      "cumulative_seconds": 0.0094606,
+      "file": "src/sentinelmcp/telemetry/observability.py",
+      "function": "_resilient_context",
+      "line": 239,
+      "primitive_calls": 3600,
+      "total_calls": 3600,
+      "total_seconds": 0.0015821
+    },
+    {
+      "cumulative_seconds": 0.0091869,
+      "file": "src/sentinelmcp/domain/json_values.py",
+      "function": "freeze_json",
+      "line": 52,
+      "primitive_calls": 800,
+      "total_calls": 800,
+      "total_seconds": 0.0007085
+    },
+    {
+      "cumulative_seconds": 0.0088207,
+      "file": "Lib/contextlib.py",
+      "function": "__exit__",
+      "line": 141,
+      "primitive_calls": 1800,
+      "total_calls": 5400,
+      "total_seconds": 0.0018884
+    },
+    {
+      "cumulative_seconds": 0.0086075,
+      "file": "src/sentinelmcp/domain/json_values.py",
+      "function": "_freeze_json",
+      "line": 100,
+      "primitive_calls": 1000,
+      "total_calls": 1800,
+      "total_seconds": 0.0015276
+    },
+    {
+      "cumulative_seconds": 0.0081811,
+      "file": "src/sentinelmcp/domain/json_values.py",
+      "function": "thaw_json",
+      "line": 90,
+      "primitive_calls": 800,
+      "total_calls": 4000,
+      "total_seconds": 0.0032317
+    },
+    {
+      "cumulative_seconds": 0.0078667,
+      "file": "src/sentinelmcp/domain/json_values.py",
+      "function": "_freeze_mapping",
+      "line": 152,
+      "primitive_calls": 1000,
+      "total_calls": 1000,
+      "total_seconds": 0.0027601
+    },
+    {
+      "cumulative_seconds": 0.0071547,
+      "file": "~",
+      "function": "<built-in method builtins.isinstance>",
+      "line": 0,
+      "primitive_calls": 48799,
+      "total_calls": 48799,
+      "total_seconds": 0.0057373
+    },
+    {
+      "cumulative_seconds": 0.0070102,
+      "file": ".devtools/jsonschema/_keywords.py",
+      "function": "properties",
+      "line": 290,
+      "primitive_calls": 400,
+      "total_calls": 400,
+      "total_seconds": 0.000598
+    }
+  ]
+}

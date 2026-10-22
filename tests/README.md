@@ -27,3 +27,8 @@ Phase 11 adds `evaluation/` tests for every packaged fault scenario and model/ca
 The unit lane covers deterministic HTTP response/exception plans and evaluation-only mutation-state
 transitions. These fixtures call the production executor and mutation service, but the in-memory
 fault transports and mutation store are never composed into the production gateway.
+
+Phase 12 adds bounded benchmark configuration, artifact, percentile, profiling, resource-sampling,
+and CLI tests. Its PostgreSQL integration case executes the real mutation preview/confirmation
+state machine. Performance assertions are deliberately excluded from the test suite because noisy
+shared runners are unsuitable for fixed latency or throughput thresholds.

@@ -6,8 +6,8 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Phase 12 performance benchmarking and profiling
-- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+- **Current phase:** Phase 13 release, portfolio, security, and documentation polish
+- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
 - **Completed Phase 7 HEAD:** `ae4aefb` (`main`, Checkpoint Phase 7 completion)
 - **Completed Phase 8 implementation HEAD:** `424496a` (`main`, Document and provision Phase 8
   operations); runtime and tests are in `76d09d3`
@@ -17,20 +17,22 @@ diff. Update it after every significant milestone and commit.
   documentation is in `4b2a652`
 - **Completed Phase 11 implementation HEAD:** `03a2d70` (`main`, Add deterministic fault
   evaluation); documentation and measured artifact are in `54ade21`
-- **Uncommitted work:** This Phase 11 checkpoint transition only
+- **Completed Phase 12 implementation HEAD:** `d5e0c67` (`main`, Add reproducible benchmark
+  harness); profile-guided schema-validator optimization is in `03b3ca0`
+- **Uncommitted work:** Phase 12 documentation and committed benchmark evidence
 - **Staged work:** None
 - **Remote:** None configured
 
 ## Last verified evidence
 
-- Complete suite: 577 passed, 0 skipped, 0 warnings
-- Branch coverage: 96.09%
-- Real PostgreSQL lane: 57/577 tests collected and passed in the complete suite
+- Complete suite: 597 passed, 0 skipped, 0 warnings
+- Branch coverage: 96.14%
+- Real PostgreSQL lane: included and passed in the complete suite
 - Focused MCP lane: 42 passed; MCP adapter local coverage was 91% for names, 93% for principal,
   and 88% for server
 - Phase 11 focused evaluation/fault/CLI lane: 33 passed
-- Ruff format: passed (166 files); Ruff lint: passed
-- Strict mypy: passed (123 files)
+- Ruff format: passed (132 Python files); Ruff lint: passed
+- Strict mypy: passed (127 files)
 - Markdown-link and package-layout tests: 16 passed with coverage disabled for the focused lane
 - Phase 10 source distribution built and inspected; wheel built from the extracted source
   distribution and inspected
@@ -55,8 +57,15 @@ diff. Update it after every significant milestone and commit.
   1/1 policy rejection, and 3/3 success/recovery cases; 0 model scenarios and no model claim
 - Phase 11 diagnostic suite runtime: 78.09 ms for one deterministic local run; explicitly not a
   benchmark or production latency claim
-- Benchmark status: only the bounded Phase 9 diagnostic command has run; no reproducible benchmark
-  artifact or performance claim exists
+- Phase 12 final benchmark: 26,000 request samples across seven real composition paths, five trials
+  per group, no unexpected errors, commit `03b3ca06ae3c1eca0e1b2fb524179618fc71460d`
+- Phase 12 concurrency-1 results: core 5,051 requests/s at 0.251 ms p95; authenticated in-process
+  REST 1,041 requests/s at 1.160 ms p95; PostgreSQL mutation preview/confirm 298 requests/s at
+  4.414 ms p95
+- Profile-guided result: bounded immutable schema-validator caching improved concurrency-1 core
+  throughput from 624 to 5,051 requests/s and reduced p95 from 2.443 ms to 0.251 ms
+- Phase 12 raw evidence: `benchmarks/results/phase12-windows-local-before-cache-20261022/` and
+  `benchmarks/results/phase12-windows-local-after-cache-20261022/`
 
 ## Known limitations
 
@@ -67,7 +76,7 @@ diff. Update it after every significant milestone and commit.
   there is no automatic redrive or reconciliation command yet.
 - Reliability controls are opt-in and process-local; they provide no global multi-replica rate,
   retry, or circuit bound and retain observed keys for the process lifetime.
-- Downstream idempotency-key propagation and reproducible benchmarks are not implemented yet.
+- Downstream idempotency-key propagation is not implemented yet.
 - MCP exposes only exact `ToolRef` encodings that fit the protocol's 128-character tool-name limit;
   it rejects longer references instead of truncating, hashing, or silently aliasing them.
 - Stdio and in-memory MCP callers require an explicitly configured static principal resolver and
@@ -81,6 +90,10 @@ diff. Update it after every significant milestone and commit.
 - Phase 11 uses deterministic injected transports and an evaluation-only mutation store. It proves
   classification and dispatch invariants, not real-network failure frequencies, service-level
   objectives, model routing accuracy, or production recovery rates.
+- Phase 12 is a single-host local synthetic benchmark. It does not establish production capacity,
+  external-network latency, multi-process scaling, Redis performance, or service-level objectives.
+  In-memory MCP latency includes client-side transport queueing, and Windows process CPU sampling
+  has coarse resolution.
 - Replay defaults to explicitly marked synthetic read bindings, current reauthorization, and a
   final pre-dispatch binding guard. The standalone CLI audit store is process-local, and its local
   replay files are unencrypted and not tamper-proof. Sensitive-key rejection cannot detect a secret
@@ -99,12 +112,11 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Define reproducible benchmark configuration, environment capture, warmup, samples, concurrency,
-   percentile calculation, and machine-readable artifact schemas.
-2. Profile actual direct-adapter, executor, REST, MCP, authenticated/audited, PostgreSQL mutation,
-   and failure paths before deciding whether any optimization is justified.
-3. Run measured concurrency levels, record CPU/memory only where reliable, document methodology and
-   limitations, then rerun the complete correctness gate after any evidence-driven change.
+1. Perform the final security review, including SSRF/network-target policy, redirect behavior,
+   secrets, logs, generated artifacts, and repository history.
+2. Complete release documentation, demos, portfolio evidence, packaging, and clean-install checks.
+3. Run the final quality/security/publication gate, then create and verify the public GitHub
+   repository, CI, optional `v0.1.0` release, and portfolio links.
 
 ## Resume commands
 

@@ -1,0 +1,229 @@
+{
+  "functions": [
+    {
+      "cumulative_seconds": 0.8413523,
+      "file": "src/sentinelmcp/benchmarking/runner.py",
+      "function": "executor_core",
+      "line": 339,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0014298
+    },
+    {
+      "cumulative_seconds": 0.8367936,
+      "file": "src/sentinelmcp/application/executor.py",
+      "function": "execute",
+      "line": 185,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0010417
+    },
+    {
+      "cumulative_seconds": 0.7911334,
+      "file": "src/sentinelmcp/application/executor.py",
+      "function": "prepare",
+      "line": 253,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0040071
+    },
+    {
+      "cumulative_seconds": 0.6994849,
+      "file": "src/sentinelmcp/registry/schema.py",
+      "function": "validate_tool_definition_schemas",
+      "line": 76,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0001514
+    },
+    {
+      "cumulative_seconds": 0.6993335,
+      "file": "src/sentinelmcp/registry/schema.py",
+      "function": "compile",
+      "line": 49,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0006404
+    },
+    {
+      "cumulative_seconds": 0.6919072,
+      "file": "src/sentinelmcp/registry/schema.py",
+      "function": "_prepare_schema",
+      "line": 82,
+      "primitive_calls": 400,
+      "total_calls": 400,
+      "total_seconds": 0.0016419
+    },
+    {
+      "cumulative_seconds": 0.6563085,
+      "file": ".devtools/jsonschema/validators.py",
+      "function": "iter_errors",
+      "line": 349,
+      "primitive_calls": 800,
+      "total_calls": 800,
+      "total_seconds": 0.0020482
+    },
+    {
+      "cumulative_seconds": 0.65598,
+      "file": ".devtools/jsonschema/validators.py",
+      "function": "check_schema",
+      "line": 306,
+      "primitive_calls": 400,
+      "total_calls": 400,
+      "total_seconds": 0.0008622
+    },
+    {
+      "cumulative_seconds": 0.644652,
+      "file": ".devtools/jsonschema/validators.py",
+      "function": "descend",
+      "line": 396,
+      "primitive_calls": 3200,
+      "total_calls": 22800,
+      "total_seconds": 0.0566162
+    },
+    {
+      "cumulative_seconds": 0.6402361,
+      "file": ".devtools/jsonschema/_keywords.py",
+      "function": "allOf",
+      "line": 332,
+      "primitive_calls": 400,
+      "total_calls": 1200,
+      "total_seconds": 0.0048862
+    },
+    {
+      "cumulative_seconds": 0.6146708,
+      "file": ".devtools/jsonschema/_keywords.py",
+      "function": "ref",
+      "line": 274,
+      "primitive_calls": 2800,
+      "total_calls": 9600,
+      "total_seconds": 0.0092154
+    },
+    {
+      "cumulative_seconds": 0.4823754,
+      "file": ".devtools/jsonschema/_keywords.py",
+      "function": "properties",
+      "line": 290,
+      "primitive_calls": 3600,
+      "total_calls": 10000,
+      "total_seconds": 0.0101149
+    },
+    {
+      "cumulative_seconds": 0.4044672,
+      "file": ".devtools/jsonschema/_keywords.py",
+      "function": "dynamicRef",
+      "line": 278,
+      "primitive_calls": 800,
+      "total_calls": 800,
+      "total_seconds": 0.0006862
+    },
+    {
+      "cumulative_seconds": 0.2950322,
+      "file": ".devtools/jsonschema/validators.py",
+      "function": "_validate_reference",
+      "line": 459,
+      "primitive_calls": 10400,
+      "total_calls": 10400,
+      "total_seconds": 0.0064887
+    },
+    {
+      "cumulative_seconds": 0.2885435,
+      "file": ".devtools/referencing/_core.py",
+      "function": "lookup",
+      "line": 653,
+      "primitive_calls": 10400,
+      "total_calls": 10400,
+      "total_seconds": 0.0255624
+    },
+    {
+      "cumulative_seconds": 0.2211913,
+      "file": ".devtools/jsonschema/_keywords.py",
+      "function": "additionalProperties",
+      "line": 36,
+      "primitive_calls": 800,
+      "total_calls": 800,
+      "total_seconds": 0.00166
+    },
+    {
+      "cumulative_seconds": 0.1550721,
+      "file": ".devtools/jsonschema/validators.py",
+      "function": "evolve",
+      "line": 339,
+      "primitive_calls": 22800,
+      "total_calls": 22800,
+      "total_seconds": 0.041635
+    },
+    {
+      "cumulative_seconds": 0.1470938,
+      "file": "Lib/urllib/parse.py",
+      "function": "urljoin",
+      "line": 559,
+      "primitive_calls": 9200,
+      "total_calls": 9200,
+      "total_seconds": 0.0434404
+    },
+    {
+      "cumulative_seconds": 0.0704783,
+      "file": ".devtools/jsonschema/validators.py",
+      "function": "validator_for",
+      "line": 1335,
+      "primitive_calls": 23200,
+      "total_calls": 23200,
+      "total_seconds": 0.0106063
+    },
+    {
+      "cumulative_seconds": 0.0547172,
+      "file": "Lib/urllib/parse.py",
+      "function": "_coerce_args",
+      "line": 119,
+      "primitive_calls": 73600,
+      "total_calls": 73600,
+      "total_seconds": 0.0422926
+    },
+    {
+      "cumulative_seconds": 0.0544819,
+      "file": ".devtools/jsonschema/_utils.py",
+      "function": "__getitem__",
+      "line": 19,
+      "primitive_calls": 19200,
+      "total_calls": 19200,
+      "total_seconds": 0.0067874
+    },
+    {
+      "cumulative_seconds": 0.050789,
+      "file": ".devtools/jsonschema/_keywords.py",
+      "function": "type",
+      "line": 282,
+      "primitive_calls": 11600,
+      "total_calls": 11600,
+      "total_seconds": 0.0160246
+    },
+    {
+      "cumulative_seconds": 0.0505346,
+      "file": "Lib/urllib/parse.py",
+      "function": "urlunsplit",
+      "line": 536,
+      "primitive_calls": 28400,
+      "total_calls": 28400,
+      "total_seconds": 0.0241135
+    },
+    {
+      "cumulative_seconds": 0.0501849,
+      "file": "src/sentinelmcp/registry/fingerprint.py",
+      "function": "fingerprint_tool_definition",
+      "line": 44,
+      "primitive_calls": 200,
+      "total_calls": 200,
+      "total_seconds": 0.0004271
+    },
+    {
+      "cumulative_seconds": 0.0492051,
+      "file": "<attrs generated methods jsonschema.validators.create.<locals>.Validator>",
+      "function": "__init__",
+      "line": 26,
+      "primitive_calls": 23600,
+      "total_calls": 23600,
+      "total_seconds": 0.0086345
+    }
+  ]
+}
