@@ -6,8 +6,8 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Phase 11 deterministic fault-injection evaluation
-- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+- **Current phase:** Phase 12 performance benchmarking and profiling
+- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 - **Completed Phase 7 HEAD:** `ae4aefb` (`main`, Checkpoint Phase 7 completion)
 - **Completed Phase 8 implementation HEAD:** `424496a` (`main`, Document and provision Phase 8
   operations); runtime and tests are in `76d09d3`
@@ -15,19 +15,22 @@ diff. Update it after every significant milestone and commit.
   operator CLI); documentation is in `d35b256`
 - **Completed Phase 10 implementation HEAD:** `b1e304d` (`main`, Add official MCP integration);
   documentation is in `4b2a652`
-- **Uncommitted work:** This Phase 10 checkpoint transition only
+- **Completed Phase 11 implementation HEAD:** `03a2d70` (`main`, Add deterministic fault
+  evaluation); documentation and measured artifact are in `54ade21`
+- **Uncommitted work:** This Phase 11 checkpoint transition only
 - **Staged work:** None
 - **Remote:** None configured
 
 ## Last verified evidence
 
-- Complete suite: 550 passed, 0 skipped, 0 warnings
-- Branch coverage: 95.82%
-- Real PostgreSQL lane: 57/550 tests collected and passed in the complete suite
+- Complete suite: 577 passed, 0 skipped, 0 warnings
+- Branch coverage: 96.09%
+- Real PostgreSQL lane: 57/577 tests collected and passed in the complete suite
 - Focused MCP lane: 42 passed; MCP adapter local coverage was 91% for names, 93% for principal,
   and 88% for server
-- Ruff format: passed (159 files); Ruff lint: passed
-- Strict mypy: passed (116 files)
+- Phase 11 focused evaluation/fault/CLI lane: 33 passed
+- Ruff format: passed (166 files); Ruff lint: passed
+- Strict mypy: passed (123 files)
 - Markdown-link and package-layout tests: 16 passed with coverage disabled for the focused lane
 - Phase 10 source distribution built and inspected; wheel built from the extracted source
   distribution and inspected
@@ -46,6 +49,12 @@ diff. Update it after every significant milestone and commit.
 - PostgreSQL: project-local PostgreSQL 17.11 verified on `127.0.0.1:54329`
 - Test URL: `postgresql+psycopg://sentinelmcp_test@127.0.0.1:54329/sentinelmcp_test`
 - MCP dependency: official Python SDK 2.3.0, constrained to compatible 2.x releases
+- Phase 11 measured artifact: `docs/evidence/phase11-evaluation.json`, generated
+  `2026-10-22T03:45:23.911107Z` (2026-10-21 America/Los_Angeles)
+- Phase 11 results: 23/23 expectations matched: 8/8 tool errors, 11/11 infrastructure errors,
+  1/1 policy rejection, and 3/3 success/recovery cases; 0 model scenarios and no model claim
+- Phase 11 diagnostic suite runtime: 78.09 ms for one deterministic local run; explicitly not a
+  benchmark or production latency claim
 - Benchmark status: only the bounded Phase 9 diagnostic command has run; no reproducible benchmark
   artifact or performance claim exists
 
@@ -58,8 +67,7 @@ diff. Update it after every significant milestone and commit.
   there is no automatic redrive or reconciliation command yet.
 - Reliability controls are opt-in and process-local; they provide no global multi-replica rate,
   retry, or circuit bound and retain observed keys for the process lifetime.
-- Downstream idempotency-key propagation, fault evaluation, and reproducible benchmarks are not
-  implemented yet.
+- Downstream idempotency-key propagation and reproducible benchmarks are not implemented yet.
 - MCP exposes only exact `ToolRef` encodings that fit the protocol's 128-character tool-name limit;
   it rejects longer references instead of truncating, hashing, or silently aliasing them.
 - Stdio and in-memory MCP callers require an explicitly configured static principal resolver and
@@ -70,6 +78,9 @@ diff. Update it after every significant milestone and commit.
   mutation state machine and unknown-outcome handling.
 - The MCP dependency is bounded to 2.x and was verified with SDK 2.3.0 and protocol `2026-07-28`;
   later compatible releases still require normal regression testing.
+- Phase 11 uses deterministic injected transports and an evaluation-only mutation store. It proves
+  classification and dispatch invariants, not real-network failure frequencies, service-level
+  objectives, model routing accuracy, or production recovery rates.
 - Replay defaults to explicitly marked synthetic read bindings, current reauthorization, and a
   final pre-dispatch binding guard. The standalone CLI audit store is process-local, and its local
   replay files are unencrypted and not tamper-proof. Sensitive-key rejection cannot detect a secret
@@ -88,12 +99,12 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Define deterministic fault scenarios for protocol, transport, schema, timeout, duplicate, and
-   mutation-ambiguity failures without introducing a second execution path.
-2. Implement fault injection and machine-readable evaluation attribution that distinguishes policy
-   rejection, tool error, infrastructure error, and model error where applicable.
-3. Prove each scenario and artifact schema with focused tests, then run the complete Phase 11 quality
-   gate and record only measured results.
+1. Define reproducible benchmark configuration, environment capture, warmup, samples, concurrency,
+   percentile calculation, and machine-readable artifact schemas.
+2. Profile actual direct-adapter, executor, REST, MCP, authenticated/audited, PostgreSQL mutation,
+   and failure paths before deciding whether any optimization is justified.
+3. Run measured concurrency levels, record CPU/memory only where reliable, document methodology and
+   limitations, then rerun the complete correctness gate after any evidence-driven change.
 
 ## Resume commands
 
