@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
 
 import pytest
 
 from sentinelmcp.cli import main
+from sentinelmcp.evaluation import EvaluationReport, OutcomeAttribution, ScenarioResult
+from sentinelmcp.execution import ExecutionErrorCode
 
 
 def test_tools_list_and_describe_emit_exact_versioned_contracts(
@@ -148,11 +152,25 @@ def test_eval_and_benchmark_commands_return_measured_machine_readable_results(
 ) -> None:
     store = tmp_path / "replays"
 
-    assert main(["eval", "run", "--store", str(store)]) == 0
+    artifact = tmp_path / "phase11.json"
+    assert (
+        main(
+            [
+                "eval",
+                "run",
+                "--output",
+                str(artifact),
+                "--store",
+                str(store),
+            ]
+        )
+        == 0
+    )
     evaluation = json.loads(capsys.readouterr().out)["evaluation"]
-    assert evaluation["scenario_count"] == 3
-    assert evaluation["successes"] == 3
-    assert evaluation["failures"] == 0
+    assert evaluation["scenario_count"] == 23
+    assert evaluation["passed"] == 23
+    assert evaluation["failed"] == 0
+    assert json.loads(artifact.read_text(encoding="utf-8")) == evaluation
 
     assert (
         main(
@@ -181,3 +199,38 @@ def test_benchmark_rejects_unbounded_iteration_counts() -> None:
         main(["benchmark", "run", "--iterations", "10001"])
     with pytest.raises(SystemExit):
         main(["benchmark", "run", "--iterations", "many"])
+
+
+def test_evaluation_mismatch_returns_nonzero_with_complete_report(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def mismatched_report(**_kwargs: object) -> EvaluationReport:
+        return EvaluationReport(
+            "test-suite",
+            "1.0.0",
+            datetime(2026, 10, 21, tzinfo=UTC),
+            1.0,
+            (
+                ScenarioResult(
+                    "mismatch",
+                    False,
+                    OutcomeAttribution.SUCCESS,
+                    OutcomeAttribution.TOOL_ERROR,
+                    None,
+                    ExecutionErrorCode.UPSTREAM_BAD_REQUEST,
+                    1,
+                    1,
+                    1.0,
+                ),
+            ),
+        )
+
+    cli_module = import_module("sentinelmcp.cli.main")
+    monkeypatch.setattr(cli_module, "run_phase11_evaluation", mismatched_report)
+
+    assert main(["eval", "run"]) == 1
+    document = json.loads(capsys.readouterr().out)
+    assert document["status"] == "error"
+    assert document["evaluation"]["failed"] == 1
+    assert len(document["evaluation"]["results"]) == 1

@@ -18,6 +18,7 @@ from sentinelmcp.application import DemoRuntime, create_demo_runtime
 from sentinelmcp.audit import DurableAuditRecorder, InMemoryAuditStore
 from sentinelmcp.domain import SentinelMCPError, ToolRef
 from sentinelmcp.domain.json_values import thaw_json
+from sentinelmcp.evaluation import run_phase11_evaluation
 from sentinelmcp.execution import (
     ExecutionError,
     ExecutionFailure,
@@ -124,7 +125,20 @@ async def _dispatch(arguments: argparse.Namespace) -> tuple[dict[str, object], i
         return document, 0 if isinstance(replay_result, ExecutionSuccess) else 1
 
     if arguments.command == "eval":
-        return await _run_evaluation(runtime.demo, principal), 0
+        report = await run_phase11_evaluation(principal=principal)
+        evaluation = report.to_document()
+        evaluation_document: dict[str, object] = {
+            "status": "ok" if report.passed == len(report.results) else "error",
+            "evaluation": evaluation,
+        }
+        if arguments.output is not None:
+            output_path = Path(arguments.output)
+            output_path.write_text(
+                json.dumps(evaluation, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            evaluation_document["artifact"] = str(output_path)
+        return evaluation_document, 0 if report.passed == len(report.results) else 1
 
     if arguments.command == "benchmark":
         return await _run_benchmark(runtime.demo, principal, arguments.iterations), 0
@@ -143,44 +157,6 @@ def _runtime(store_path: Path) -> _CliRuntime:
         recorder,
     )
     return _CliRuntime(demo, replay)
-
-
-async def _run_evaluation(
-    runtime: DemoRuntime,
-    principal: Principal,
-) -> dict[str, object]:
-    scenarios = (
-        ("math", ExecutionRequest(ToolRef.parse("demo.math.add@1.0.0"), {"a": 2, "b": 3})),
-        (
-            "catalog",
-            ExecutionRequest(ToolRef.parse("demo.catalog.lookup@1.0.0"), {"id": "asset-1"}),
-        ),
-        (
-            "profile",
-            ExecutionRequest(ToolRef.parse("demo.profile.get@1.0.0"), {"username": "ada"}),
-        ),
-    )
-    results: list[dict[str, object]] = []
-    for scenario_id, request in scenarios:
-        result = await runtime.executor.execute(request, principal=principal)
-        results.append(
-            {
-                "scenario": scenario_id,
-                "outcome": (
-                    "success" if isinstance(result, ExecutionSuccess) else result.error.code.value
-                ),
-            }
-        )
-    successes = sum(result["outcome"] == "success" for result in results)
-    return {
-        "status": "ok",
-        "evaluation": {
-            "scenario_count": len(results),
-            "successes": successes,
-            "failures": len(results) - successes,
-            "results": results,
-        },
-    }
 
 
 async def _run_benchmark(
@@ -353,6 +329,7 @@ def _parser() -> argparse.ArgumentParser:
     evaluation = subparsers.add_parser("eval")
     evaluation_subparsers = evaluation.add_subparsers(dest="eval_command", required=True)
     evaluation_run = evaluation_subparsers.add_parser("run")
+    evaluation_run.add_argument("--output")
     _add_identity_arguments(evaluation_run)
     _add_store_argument(evaluation_run)
 

@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "suite_id": "phase11-fault-injection",
+  "suite_version": "1.0.0",
+  "scenarios": [
+    {"id":"http-400","description":"Upstream rejects a malformed request.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"upstream_bad_request","expected_dispatches":1,"faults":[{"kind":"status","status":400}]},
+    {"id":"http-401","description":"Upstream rejects SentinelMCP authentication.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"upstream_authentication_failed","expected_dispatches":1,"faults":[{"kind":"status","status":401}]},
+    {"id":"http-403","description":"Upstream denies the selected operation.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"upstream_authorization_failed","expected_dispatches":1,"faults":[{"kind":"status","status":403}]},
+    {"id":"http-404","description":"Upstream resource is absent.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"upstream_not_found","expected_dispatches":1,"faults":[{"kind":"status","status":404}]},
+    {"id":"http-409","description":"Upstream reports a domain conflict.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"upstream_conflict","expected_dispatches":1,"faults":[{"kind":"status","status":409}]},
+    {"id":"http-429","description":"Upstream rate-limits the request.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"upstream_rate_limited","expected_dispatches":1,"faults":[{"kind":"status","status":429}]},
+    {"id":"http-500","description":"Upstream reports an internal tool error.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"upstream_server_error","expected_dispatches":1,"faults":[{"kind":"status","status":500}]},
+    {"id":"http-502","description":"Gateway cannot reach the upstream tool.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_unavailable","expected_dispatches":1,"faults":[{"kind":"status","status":502}]},
+    {"id":"http-503","description":"Upstream dependency is unavailable.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_unavailable","expected_dispatches":1,"faults":[{"kind":"status","status":503}]},
+    {"id":"http-504","description":"Gateway reports an upstream timeout.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_timeout","expected_dispatches":1,"faults":[{"kind":"status","status":504}]},
+    {"id":"malformed-json","description":"Successful response contains malformed JSON.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_malformed_response","expected_dispatches":1,"faults":[{"kind":"malformed_json"}]},
+    {"id":"wrong-content-type","description":"Successful response uses a non-JSON media type.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_invalid_content_type","expected_dispatches":1,"faults":[{"kind":"wrong_content_type"}]},
+    {"id":"invalid-utf8","description":"Successful response is not valid UTF-8.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_malformed_response","expected_dispatches":1,"faults":[{"kind":"invalid_utf8"}]},
+    {"id":"oversized-response","description":"Response exceeds the configured byte limit.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_response_too_large","expected_dispatches":1,"faults":[{"kind":"oversized_response","response_bytes":128}]},
+    {"id":"timeout","description":"Transport raises a deterministic read timeout.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_timeout","expected_dispatches":1,"faults":[{"kind":"timeout"}]},
+    {"id":"slow-response","description":"Dependency responds successfully after a bounded delay.","kind":"http","expected_attribution":"SUCCESS","expected_error":null,"expected_dispatches":1,"faults":[{"kind":"slow_response","delay_ms":10}]},
+    {"id":"connection-failure","description":"Transport cannot establish a dependency connection.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_unavailable","expected_dispatches":1,"faults":[{"kind":"connection_failure"}]},
+    {"id":"connection-drop","description":"Established transport drops while reading the response.","kind":"http","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"upstream_unavailable","expected_dispatches":1,"faults":[{"kind":"connection_drop"}]},
+    {"id":"intermittent-outage","description":"One unavailable response recovers on the bounded retry.","kind":"http","expected_attribution":"SUCCESS","expected_error":null,"expected_dispatches":2,"retry_recovered":true,"faults":[{"kind":"status","status":503},{"kind":"success"}]},
+    {"id":"output-schema-violation","description":"Decoded response violates the immutable output contract.","kind":"http","expected_attribution":"TOOL_ERROR","expected_error":"output_validation_failed","expected_dispatches":1,"faults":[{"kind":"output_schema_violation"}]},
+    {"id":"policy-rejection","description":"Local default-deny authorization blocks all dispatch.","kind":"policy_rejection","expected_attribution":"POLICY_REJECTION","expected_error":"authorization_failed","expected_dispatches":0},
+    {"id":"duplicate-request","description":"A completed idempotent mutation is reused without redispatch.","kind":"duplicate_request","expected_attribution":"SUCCESS","expected_error":null,"expected_dispatches":1},
+    {"id":"mutation-ambiguity","description":"Outcome persistence fails after one mutation dispatch.","kind":"mutation_ambiguity","expected_attribution":"INFRASTRUCTURE_ERROR","expected_error":"mutation_outcome_unknown","expected_dispatches":1}
+  ]
+}
