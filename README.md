@@ -6,7 +6,7 @@ SentinelMCP is an open-source infrastructure project for mediating calls from AI
 external tools. It is designed to make tool execution explicit, policy-controlled,
 observable, replayable, and resilient to dependency failures.
 
-> **Project status:** Version 0.1.0 is a public-alpha release candidate. SentinelMCP can durably register exact
+> **Project status:** Version 0.1.0 is a public alpha. SentinelMCP can durably register exact
 > immutable tool versions in PostgreSQL and execute authenticated, authorized reads through
 > synthetic or HTTP adapters behind FastAPI. Mutations use durable preview, single-use
 > confirmation, and idempotency state. Reads support request-wide deadlines, bounded retries,
@@ -229,7 +229,7 @@ phase begins. The complete plan is in [Implementation plan](docs/IMPLEMENTATION_
 | 10 | Official MCP integration | Complete |
 | 11 | Fault injection and reliability evaluation | Complete |
 | 12 | Performance benchmarking and profiling | Complete |
-| 13 | Release, portfolio, security, and documentation polish | In final validation |
+| 13 | Release, portfolio, security, and documentation polish | Complete |
 
 ## Benchmarks
 

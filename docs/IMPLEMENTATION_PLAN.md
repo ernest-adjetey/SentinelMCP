@@ -256,7 +256,7 @@ No result enters the README until the full protocol in `BENCHMARKS.md` has run.
 
 ## Phase 13: Security, test, and release polish
 
-**Status: In final validation**
+**Status: Complete**
 
 **Deliverables**
 

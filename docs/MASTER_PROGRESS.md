@@ -6,8 +6,8 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Phase 13 release, portfolio, security, and documentation polish
-- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+- **Current phase:** Verified GitHub publication and portfolio deployment
+- **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 - **Completed Phase 7 HEAD:** `ae4aefb` (`main`, Checkpoint Phase 7 completion)
 - **Completed Phase 8 implementation HEAD:** `424496a` (`main`, Document and provision Phase 8
   operations); runtime and tests are in `76d09d3`
@@ -21,14 +21,14 @@ diff. Update it after every significant milestone and commit.
   harness); profile-guided schema-validator optimization is in `03b3ca0`; documentation and
   committed benchmark evidence are in `045c52f`
 - **Completed Phase 13 security HEAD:** `37dad2e` (`main`, Harden HTTP network boundaries)
-- **Uncommitted work:** Version 0.1.0 release packaging, CI, installed-wheel smoke, and final
-  release/evidence documentation
-- **Staged work:** None
+- **Phase 13 release implementation checkpoint:** `f251c23` (`main`, Prepare SentinelMCP 0.1.0
+  release), after the authorized history rewrite
+- **Working tree target:** Clean before the `v0.1.0` tag and publication
 - **Remote:** None configured
 
 ## Last verified evidence
 
-- Complete Python 3.12.14 suite: 617 passed in 49.32 seconds, 0 skipped, 0 warnings
+- Complete Python 3.12.14 suite: 617 passed in 49.36 seconds, 0 skipped, 0 warnings
 - Branch coverage: 95.64% (5,344 statements and 1,300 branches measured)
 - Real PostgreSQL lane: 58 tests collected and passed in the complete suite
 - Focused MCP lane: 42 passed; MCP adapter local coverage was 91% for names, 93% for principal,
@@ -62,6 +62,9 @@ diff. Update it after every significant milestone and commit.
   caches, and raw benchmark payloads were absent
 - Dependency audit: no known vulnerabilities in the resolved third-party environment; the local
   unpublished editable package was excluded from the frozen audit input
+- Publication scan: working tree and all 38 commits had zero matches for user-home paths, employer
+  terms, private keys, GitHub/AWS/OpenAI token formats, or long bearer-token formats after the
+  exact historical home-path rewrite; `git fsck --full --unreachable` reported no residual objects
 - Alembic CLI upgrade, downgrade to base, and second upgrade to revision `0003` head: passed
 - Docker Compose v5.6.0 configuration validation: passed
 - Grafana dashboard JSON validation: passed (7 panels)
@@ -131,11 +134,10 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Complete release documentation and the repository-wide security/proprietary/history review.
-2. Run the final Python 3.12/PostgreSQL 17 quality, migration, packaging, audit, and artifact gate;
-   record its exact counts, hashes, and tool versions here.
-3. Create the verified local release commit and `v0.1.0` tag, publish the public GitHub repository,
-   verify green CI, then update and verify the existing portfolio deployment and cross-links.
+1. Commit this final progress checkpoint and build the release archives from the exact clean
+   commit; report their SHA-256 hashes with the release.
+2. Create `v0.1.0`, publish and verify the GitHub repository, and require green CI.
+3. Update and verify the existing portfolio deployment and all final cross-links.
 
 ## Resume commands
 
