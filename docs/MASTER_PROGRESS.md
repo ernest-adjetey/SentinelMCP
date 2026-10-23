@@ -76,7 +76,8 @@ diff. Update it after every significant milestone and commit.
   lint, typing, migration, test, package, and installed-wheel gate at exact release commit
   `34159097d64bdb9cb0527798c9cf77044b2bf34a`.
 - CI supply-chain actions are pinned to immutable Node 24 release commits for checkout 7.0.1,
-  setup-python 7.1.0, and upload-artifact 7.0.2.
+  setup-python 7.1.0, and upload-artifact 7.0.2; the runner is pinned to Ubuntu 24.04 instead of a
+  moving `ubuntu-latest` label.
 - Patch 0.1.1 local gate: 617 tests passed in 37.06 seconds with zero skips or warnings and 95.64%
   branch-aware coverage; 11 focused benchmark tests passed, including the PostgreSQL workload,
   and the 30-test focused replay lane passed.
