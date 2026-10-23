@@ -6,7 +6,7 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Verified GitHub publication and portfolio deployment
+- **Current phase:** Public CI portability repair and portfolio deployment
 - **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 - **Completed Phase 7 HEAD:** `ae4aefb` (`main`, Checkpoint Phase 7 completion)
 - **Completed Phase 8 implementation HEAD:** `424496a` (`main`, Document and provision Phase 8
@@ -23,8 +23,10 @@ diff. Update it after every significant milestone and commit.
 - **Completed Phase 13 security HEAD:** `37dad2e` (`main`, Harden HTTP network boundaries)
 - **Phase 13 release implementation checkpoint:** `f251c23` (`main`, Prepare SentinelMCP 0.1.0
   release), after the authorized history rewrite
-- **Working tree target:** Clean before the `v0.1.0` tag and publication
-- **Remote:** None configured
+- **Published release:** `v0.1.0` remains the immutable, validated first public alpha at commit
+  `3c9da5f`; its artifacts are unchanged
+- **Working tree target:** Clean after the Linux strict-mypy portability repair
+- **Remote:** `origin` -> `https://github.com/ernest-adjetey/SentinelMCP.git`
 
 ## Last verified evidence
 
@@ -55,6 +57,12 @@ diff. Update it after every significant milestone and commit.
 - CI-equivalent latest-compatible environment: FastAPI 0.161.0, SQLAlchemy 2.1.6, Alembic 1.20.1,
   pytest 9.1.1, and Ruff 0.17.2 passed `pip check`, strict third-party advisory audit, static
   analysis, and the same 617-test/95.64% gate
+- Public Actions run `39842490068` passed dependency integrity, audit, formatting, and lint, then
+  exposed a Linux-only strict-mypy portability issue in the Windows benchmark memory sampler. The
+  structural repair preserves Win32 `GetProcessMemoryInfo` behavior and unsupported-platform null
+  measurements; native and explicit Linux strict mypy now pass across all 128 checked files.
+- Post-repair local gate: 617 tests passed in 37.22 seconds with zero skips or warnings and 95.64%
+  branch-aware coverage; 11 focused benchmark tests passed, including the PostgreSQL workload.
 - Phase 13 source distribution built successfully; the wheel was built from its extracted source
   tree; Twine 6.2.0 accepted both archives with Core Metadata 2.4
 - Archive inspection: sdist contained 199 expected source, docs, test, migration, license, and smoke
@@ -134,9 +142,8 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Commit this final progress checkpoint and build the release archives from the exact clean
-   commit; report their SHA-256 hashes with the release.
-2. Create `v0.1.0`, publish and verify the GitHub repository, and require green CI.
+1. Commit and push the strict-mypy portability repair without moving the public `v0.1.0` tag.
+2. Require the new `main` GitHub Actions run to pass every gate.
 3. Update and verify the existing portfolio deployment and all final cross-links.
 
 ## Resume commands
@@ -159,6 +166,7 @@ If PostgreSQL is not running:
 
 ## Unresolved defects
 
-- No known production-code defect is open. A Windows sandbox restriction prevents `asyncio` from
-  creating its localhost wakeup socket, so asynchronous tests must run outside that network
-  restriction; the code path itself passes there.
+- No known production-code defect is open. The first public Actions run found a Linux-only mypy
+  portability issue, which is repaired locally and awaiting a green pushed run. A Windows sandbox
+  restriction prevents `asyncio` from creating its localhost wakeup socket, so asynchronous tests
+  must run outside that network restriction; the code path itself passes there.

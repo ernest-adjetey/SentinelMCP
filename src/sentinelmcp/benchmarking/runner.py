@@ -659,8 +659,12 @@ def _maximum_optional(values: list[int | None]) -> int | None:
     return None if not measured else max(measured)
 
 
+def _is_windows() -> bool:
+    return sys.platform == "win32"
+
+
 def _process_memory_bytes() -> tuple[int | None, int | None]:
-    if sys.platform != "win32":
+    if not _is_windows():
         return None, None
     import ctypes
     from ctypes import wintypes
@@ -679,8 +683,10 @@ def _process_memory_bytes() -> tuple[int | None, int | None]:
             ("PeakPagefileUsage", ctypes.c_size_t),
         ]
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    # Linux typeshed omits this Windows-only loader even when analyzing portable source.
+    win_dll = cast(type[ctypes.CDLL], vars(ctypes)["WinDLL"])
+    kernel32 = win_dll("kernel32", use_last_error=True)
+    psapi = win_dll("psapi", use_last_error=True)
     get_current_process = kernel32.GetCurrentProcess
     get_current_process.argtypes = []
     get_current_process.restype = wintypes.HANDLE

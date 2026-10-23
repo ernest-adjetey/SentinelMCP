@@ -2,6 +2,13 @@
 
 All notable changes to SentinelMCP are documented here. The project follows Semantic Versioning.
 
+## [Unreleased]
+
+### Fixed
+
+- Kept Windows benchmark working-set measurement compatible with strict mypy analysis on Linux
+  without changing the Win32 counters or unsupported-platform behavior.
+
 ## [0.1.0] - 2026-10-22
 
 First public alpha release.
