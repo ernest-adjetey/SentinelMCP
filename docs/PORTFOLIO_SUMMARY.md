@@ -142,5 +142,6 @@ and Ruff.
 ## Links
 
 - Repository: <https://github.com/ernest-adjetey/SentinelMCP>
+- Portfolio case study: <https://ernest-adjetey.github.io/sentinelmcp.html>
 - Architecture: <https://github.com/ernest-adjetey/SentinelMCP/blob/main/docs/ARCHITECTURE.md>
 - Evidence: <https://github.com/ernest-adjetey/SentinelMCP/blob/main/docs/RESUME_EVIDENCE.md>

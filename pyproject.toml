@@ -59,7 +59,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://ernest-adjetey.github.io/"
+Homepage = "https://ernest-adjetey.github.io/sentinelmcp.html"
 Documentation = "https://github.com/ernest-adjetey/SentinelMCP/tree/main/docs"
 Issues = "https://github.com/ernest-adjetey/SentinelMCP/issues"
 Repository = "https://github.com/ernest-adjetey/SentinelMCP"

@@ -6,7 +6,7 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Patch 0.1.1 validation and portfolio deployment
+- **Current phase:** Complete through public 0.1.1 release and portfolio deployment
 - **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 - **Completed Phase 7 HEAD:** `ae4aefb` (`main`, Checkpoint Phase 7 completion)
 - **Completed Phase 8 implementation HEAD:** `424496a` (`main`, Document and provision Phase 8
@@ -27,7 +27,13 @@ diff. Update it after every significant milestone and commit.
   `3c9da5f`; its artifacts are unchanged
 - **Patch release target:** `v0.1.1` contains the Linux CI portability repair and cross-platform
   replay append error normalization; `v0.1.0` will not be moved
-- **Working tree target:** Clean after the 0.1.1 validation and release checkpoint
+- **Published patch release:** `v0.1.1` is immutable at
+  `34159097d64bdb9cb0527798c9cf77044b2bf34a`; its release artifacts match the locally validated
+  distributions
+- **Portfolio deployment:** `ernest-adjetey/ernest-adjetey.github.io` commit
+  `9b60006d585a268b5111c6ac5786833f9cc6fd55` is live with the SentinelMCP flagship card and case
+  study
+- **Working tree target:** Clean after the final publication cross-link checkpoint
 - **Remote:** `origin` -> `https://github.com/ernest-adjetey/SentinelMCP.git`
 
 ## Last verified evidence
@@ -66,11 +72,18 @@ diff. Update it after every significant milestone and commit.
 - Follow-up Actions run `39887057629` passed strict mypy and migrations, then exposed a Linux-only
   replay append error-classification difference. The focused 30-test replay lane now passes with a
   platform-independent regression for the normalized append error.
+- Final release Actions run `39888033270` passed every configured dependency, audit, formatting,
+  lint, typing, migration, test, package, and installed-wheel gate at exact release commit
+  `34159097d64bdb9cb0527798c9cf77044b2bf34a`.
 - Patch 0.1.1 local gate: 617 tests passed in 37.06 seconds with zero skips or warnings and 95.64%
   branch-aware coverage; 11 focused benchmark tests passed, including the PostgreSQL workload,
   and the 30-test focused replay lane passed.
 - Phase 13 source distribution built successfully; the wheel was built from its extracted source
   tree; Twine 6.2.0 accepted both archives with Core Metadata 2.4
+- Final 0.1.1 sdist SHA-256:
+  `b3943cd9bd14196d3db3e9e06e48f1f3d5fa2277f41889467bc1423064a2b9fe`
+- Final 0.1.1 wheel SHA-256:
+  `bd68d9fbdab70e622c6bd2622f6329c7bd3afb20820bb1934258df604a9c005d`
 - Archive inspection: sdist contained 199 expected source, docs, test, migration, license, and smoke
   files; wheel contained 83 package/metadata/license files; development tools, local artifacts,
   caches, and raw benchmark payloads were absent
@@ -102,6 +115,10 @@ diff. Update it after every significant milestone and commit.
   throughput from 624 to 5,051 requests/s and reduced p95 from 2.443 ms to 0.251 ms
 - Phase 12 raw evidence: `benchmarks/results/phase12-windows-local-before-cache-20261022/` and
   `benchmarks/results/phase12-windows-local-after-cache-20261022/`
+- GitHub Pages run `39889104382` built and deployed portfolio commit
+  `9b60006d585a268b5111c6ac5786833f9cc6fd55`; the live home and SentinelMCP case-study pages were
+  verified at desktop and mobile widths with no broken resources, console warnings, or horizontal
+  overflow.
 
 ## Known limitations
 
@@ -148,9 +165,11 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Complete the full 0.1.1 local gate, package proof, commit, and push without moving `v0.1.0`.
-2. Require the new `main` GitHub Actions run to pass every gate, then tag and publish `v0.1.1`.
-3. Update and verify the existing portfolio deployment and all final cross-links.
+1. Keep the complete release gate green for future code changes.
+2. Treat multi-process reliability coordination, identity-provider integration, and operator
+   reconciliation as future design work rather than current capabilities.
+3. Publish a later patch or minor release only after new code passes the same package and evidence
+   gates; do not move the existing public tags.
 
 ## Resume commands
 
@@ -173,7 +192,7 @@ If PostgreSQL is not running:
 ## Unresolved defects
 
 - No known production-code defect is open. The public Actions runs found Linux-only strict-mypy
-  and replay error-classification differences; both are repaired locally and awaiting a green
-  pushed run. A Windows sandbox restriction prevents `asyncio` from creating its localhost wakeup
+  and replay error-classification differences; both are repaired and the final release run is
+  green. A Windows sandbox restriction prevents `asyncio` from creating its localhost wakeup
   socket, so asynchronous tests must run outside that network restriction; the code path itself
   passes there.

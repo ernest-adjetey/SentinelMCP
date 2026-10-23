@@ -24,6 +24,9 @@ observable, replayable, and resilient to dependency failures.
 These numbers and their limits are sourced in [Resume evidence](docs/RESUME_EVIDENCE.md). The
 benchmark is synthetic local evidence, not a production throughput or SLO claim.
 
+Read the [portfolio case study](https://ernest-adjetey.github.io/sentinelmcp.html) for a concise
+walkthrough of the architecture, engineering decisions, measured evidence, and limitations.
+
 ## Why this exists
 
 Agent frameworks make it easy to invoke a function. Production systems must answer harder
