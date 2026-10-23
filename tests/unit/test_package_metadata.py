@@ -8,8 +8,8 @@ from sentinelmcp import __version__
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_first_public_version_is_consistent() -> None:
-    assert __version__ == "0.1.0"
+def test_public_version_is_consistent() -> None:
+    assert __version__ == "0.1.1"
 
 
 def test_build_excludes_workspace_artifacts_and_declares_mcp_sdk() -> None:

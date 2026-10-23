@@ -2,12 +2,14 @@
 
 All notable changes to SentinelMCP are documented here. The project follows Semantic Versioning.
 
-## [Unreleased]
+## [0.1.1] - 2026-10-22
 
 ### Fixed
 
 - Kept Windows benchmark working-set measurement compatible with strict mypy analysis on Linux
   without changing the Win32 counters or unsupported-platform behavior.
+- Normalized replay append storage failures across operating systems when an existing path cannot
+  be read as a replay record.
 
 ## [0.1.0] - 2026-10-22
 
@@ -43,4 +45,5 @@ First public alpha release.
 - No hosted deployment, OIDC/JWKS integration, distributed rate/circuit state, or production SLO
   is included in this release.
 
+[0.1.1]: https://github.com/ernest-adjetey/SentinelMCP/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ernest-adjetey/SentinelMCP/releases/tag/v0.1.0

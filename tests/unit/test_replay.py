@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -238,6 +239,14 @@ def test_file_replay_store_translates_defensive_file_failures(
         store.get(RECORD_ID)
     with pytest.raises(ReplayStoreUnavailableError, match="append"):
         store.append(_record())
+
+    def fail_open_with_existing_path(_path: Path, _flags: int, _mode: int) -> int:
+        raise FileExistsError
+
+    with monkeypatch.context() as context:
+        context.setattr(os, "open", fail_open_with_existing_path)
+        with pytest.raises(ReplayStoreUnavailableError, match="append"):
+            store.append(_record())
 
     record_path.rmdir()
     record_path.write_bytes(b"")

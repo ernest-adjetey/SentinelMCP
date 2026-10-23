@@ -59,7 +59,11 @@ class FileReplayStore(ReplayStore):
                 0o600,
             )
         except FileExistsError:
-            if self.get(record.record_id) != record:
+            try:
+                existing = self.get(record.record_id)
+            except (ReplayNotFoundError, ReplayStoreUnavailableError):
+                raise ReplayStoreUnavailableError(operation="append") from None
+            if existing != record:
                 raise ReplayIntegrityError(
                     reason="replay record ID has conflicting content"
                 ) from None

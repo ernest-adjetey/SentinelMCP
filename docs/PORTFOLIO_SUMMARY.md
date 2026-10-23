@@ -26,7 +26,7 @@ Agent / MCP Client
 
 Read calls bypass the mutation-only stages. PostgreSQL stores immutable contracts, confirmation
 challenges, idempotency state, and audit events. Runtime bindings, rate limits, retry budgets, and
-circuit state remain process-local in 0.1.0.
+circuit state remain process-local in 0.1.x.
 
 ## Hard engineering decisions
 

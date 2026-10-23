@@ -45,7 +45,7 @@ from .principal import (
 )
 
 _SERVER_NAME = "sentinelmcp"
-_SERVER_VERSION = "0.1.0"
+_SERVER_VERSION = "0.1.1"
 _AUTHENTICATION_PROTOCOL_ERROR = -32001
 
 

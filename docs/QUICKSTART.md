@@ -1,6 +1,6 @@
 # Quickstart
 
-SentinelMCP 0.1.0 is an alpha library and reference control plane, not a hosted production
+SentinelMCP 0.1.1 is an alpha library and reference control plane, not a hosted production
 service. The fastest safe path is the local synthetic CLI; it exercises the same contracts,
 authorization, executor, validation, and replay services without external tools or credentials.
 

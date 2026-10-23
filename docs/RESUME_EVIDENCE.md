@@ -97,7 +97,7 @@ are all identified here. CI on the public commit remains the publication authori
 ## Release artifact
 
 - **Status:** VERIFIED
-- **Exact claim:** Built SentinelMCP 0.1.0 as an sdist and wheel, validated distribution metadata,
+- **Exact claim:** Built SentinelMCP 0.1.1 as an sdist and wheel, validated distribution metadata,
   installed the wheel in an isolated environment, and exercised its console, core, REST, and
   official MCP paths without importing from the source checkout.
 - **Source implementation:** [`pyproject.toml`](../pyproject.toml),

@@ -342,7 +342,7 @@ atomic shared implementation.
 At 100x traffic, partition only after measurements identify the dominant boundary. Candidate
 changes include a durable audit ingestion pipeline, separately scaled evaluation workers, and a
 shared reliability-state service with explicit consistency and failover semantics. None is part of
-0.1.0, and no multi-replica performance claim is made.
+0.1.x, and no multi-replica performance claim is made.
 
 Likely future split points are audit ingestion and evaluation workers because they can consume
 versioned events asynchronously. Policy and mutation safety remain in the synchronous path

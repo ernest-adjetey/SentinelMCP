@@ -6,7 +6,7 @@ diff. Update it after every significant milestone and commit.
 
 ## Current state
 
-- **Current phase:** Public CI portability repair and portfolio deployment
+- **Current phase:** Patch 0.1.1 validation and portfolio deployment
 - **Completed phases:** 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 - **Completed Phase 7 HEAD:** `ae4aefb` (`main`, Checkpoint Phase 7 completion)
 - **Completed Phase 8 implementation HEAD:** `424496a` (`main`, Document and provision Phase 8
@@ -25,7 +25,9 @@ diff. Update it after every significant milestone and commit.
   release), after the authorized history rewrite
 - **Published release:** `v0.1.0` remains the immutable, validated first public alpha at commit
   `3c9da5f`; its artifacts are unchanged
-- **Working tree target:** Clean after the Linux strict-mypy portability repair
+- **Patch release target:** `v0.1.1` contains the Linux CI portability repair and cross-platform
+  replay append error normalization; `v0.1.0` will not be moved
+- **Working tree target:** Clean after the 0.1.1 validation and release checkpoint
 - **Remote:** `origin` -> `https://github.com/ernest-adjetey/SentinelMCP.git`
 
 ## Last verified evidence
@@ -61,8 +63,12 @@ diff. Update it after every significant milestone and commit.
   exposed a Linux-only strict-mypy portability issue in the Windows benchmark memory sampler. The
   structural repair preserves Win32 `GetProcessMemoryInfo` behavior and unsupported-platform null
   measurements; native and explicit Linux strict mypy now pass across all 128 checked files.
-- Post-repair local gate: 617 tests passed in 37.22 seconds with zero skips or warnings and 95.64%
-  branch-aware coverage; 11 focused benchmark tests passed, including the PostgreSQL workload.
+- Follow-up Actions run `39887057629` passed strict mypy and migrations, then exposed a Linux-only
+  replay append error-classification difference. The focused 30-test replay lane now passes with a
+  platform-independent regression for the normalized append error.
+- Patch 0.1.1 local gate: 617 tests passed in 37.06 seconds with zero skips or warnings and 95.64%
+  branch-aware coverage; 11 focused benchmark tests passed, including the PostgreSQL workload,
+  and the 30-test focused replay lane passed.
 - Phase 13 source distribution built successfully; the wheel was built from its extracted source
   tree; Twine 6.2.0 accepted both archives with Core Metadata 2.4
 - Archive inspection: sdist contained 199 expected source, docs, test, migration, license, and smoke
@@ -142,8 +148,8 @@ diff. Update it after every significant milestone and commit.
 
 ## Next exact steps
 
-1. Commit and push the strict-mypy portability repair without moving the public `v0.1.0` tag.
-2. Require the new `main` GitHub Actions run to pass every gate.
+1. Complete the full 0.1.1 local gate, package proof, commit, and push without moving `v0.1.0`.
+2. Require the new `main` GitHub Actions run to pass every gate, then tag and publish `v0.1.1`.
 3. Update and verify the existing portfolio deployment and all final cross-links.
 
 ## Resume commands
@@ -166,7 +172,8 @@ If PostgreSQL is not running:
 
 ## Unresolved defects
 
-- No known production-code defect is open. The first public Actions run found a Linux-only mypy
-  portability issue, which is repaired locally and awaiting a green pushed run. A Windows sandbox
-  restriction prevents `asyncio` from creating its localhost wakeup socket, so asynchronous tests
-  must run outside that network restriction; the code path itself passes there.
+- No known production-code defect is open. The public Actions runs found Linux-only strict-mypy
+  and replay error-classification differences; both are repaired locally and awaiting a green
+  pushed run. A Windows sandbox restriction prevents `asyncio` from creating its localhost wakeup
+  socket, so asynchronous tests must run outside that network restriction; the code path itself
+  passes there.

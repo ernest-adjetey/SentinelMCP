@@ -22,7 +22,7 @@ from sentinelmcp.domain.json_values import thaw_json
 from sentinelmcp.execution import ExecutionRequest, ExecutionSuccess
 from sentinelmcp.policy import Principal
 
-EXPECTED_VERSION = "0.1.0"
+EXPECTED_VERSION = "0.1.1"
 EXPECTED_PROTOCOL = "2026-07-28"
 EXPECTED_TOOL_NAMES = [
     "s.demo.catalog.lookup_1.0.0",
