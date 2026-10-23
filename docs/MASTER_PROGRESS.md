@@ -31,8 +31,8 @@ diff. Update it after every significant milestone and commit.
   `34159097d64bdb9cb0527798c9cf77044b2bf34a`; its release artifacts match the locally validated
   distributions
 - **Portfolio deployment:** `ernest-adjetey/ernest-adjetey.github.io` commit
-  `9b60006d585a268b5111c6ac5786833f9cc6fd55` is live with the SentinelMCP flagship card and case
-  study
+  `286d5976c2fc7842d409217176e92f54e0c4d0a7` is live with the SentinelMCP flagship card, case
+  study, and functional accessible contact flow
 - **Working tree target:** Clean after the final publication cross-link checkpoint
 - **Remote:** `origin` -> `https://github.com/ernest-adjetey/SentinelMCP.git`
 
@@ -115,8 +115,8 @@ diff. Update it after every significant milestone and commit.
   throughput from 624 to 5,051 requests/s and reduced p95 from 2.443 ms to 0.251 ms
 - Phase 12 raw evidence: `benchmarks/results/phase12-windows-local-before-cache-20261022/` and
   `benchmarks/results/phase12-windows-local-after-cache-20261022/`
-- GitHub Pages run `39889104382` built and deployed portfolio commit
-  `9b60006d585a268b5111c6ac5786833f9cc6fd55`; the live home and SentinelMCP case-study pages were
+- GitHub Pages run `39906909040` built and deployed portfolio commit
+  `286d5976c2fc7842d409217176e92f54e0c4d0a7`; the live home and SentinelMCP case-study pages were
   verified at desktop and mobile widths with no broken resources, console warnings, or horizontal
   overflow.
 
